@@ -1,0 +1,27 @@
+Saviine 0.1
+
+Compatible with 5.3.2 fw
+
+dumps WiiU Saves and is a mod of cafiine. Thanks to everyone who worked on cafiine!
+
+Compilation :
+- in order to compile cafiine you need to put the cafiine folder in your libwiiu project
+- libwiiu/cafiine/installer must be compiled like the other libwiiu examples (with the build.py script)
+
+Pre-made version :
+- in www/saviine, it is already compiled, just put the folder in your server
+
+Note :
+- you can change the server ip directly in the application.
+- start the saviine in folder with a short path, some savedata files have some really long names (170+ chracters)
+- backup your savedata before dumping it!!! I'm not responsible for any lost data.
+
+How to use :
+- launch the kernel exploit in the brower
+- open cafiine server in your computer, check your ip
+- relaunch browser and launch cafiine app, set cafiine server ip in the application with up/down/left/right, and press A to install cafiine
+  -> browser should exit
+- launch a game or application
+- the savedata should be dumped to a folder in /cafiine_root/[title_id]
+- profit
+- you can close the game
