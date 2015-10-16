@@ -18,10 +18,10 @@ Note :
 
 How to use :
 - launch the kernel exploit in the brower
-- open cafiine server in your computer, check your ip
-- relaunch browser and launch cafiine app, set cafiine server ip in the application with up/down/left/right, and press A to install cafiine
+- open saviine server in your computer, check your ip
+- relaunch browser and launch saviine app, set saviine server ip in the application with up/down/left/right, and press A to install saviine
   -> browser should exit
 - launch a game or application
-- the savedata should be dumped to a folder in /cafiine_root/[title_id]
+- the savedata should be dumped to a folder in /saviine/[title_id]
 - profit
 - you can close the game
