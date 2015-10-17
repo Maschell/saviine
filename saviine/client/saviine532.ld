@@ -29,6 +29,8 @@ PROVIDE(FSShutdown = 0x1068538);
 PROVIDE(FSAddClientEx = 0x10685fc);
 PROVIDE(FSDelClient = 0x1068a08);
 PROVIDE(FSOpenFile = 0x106ef7c);
+PROVIDE(FSOpenFileAsync = 0x0106a434);
+
 PROVIDE(FSCloseFile = 0x106f088);
 PROVIDE(FSReadFile = 0x106f108);
 PROVIDE(FSReadFileWithPos = 0x106f194);
@@ -68,3 +70,7 @@ PROVIDE(MEMFreeToDefaultHeap = 0x100b487c);
 
 /* OS data */
 PROVIDE(title_id = 0x100136D0);
+
+/* Libs */
+PROVIDE(OSDynLoad_FindExport = 0x102b790);
+PROVIDE(OSDynLoad_Acquire = 0x102a31c);

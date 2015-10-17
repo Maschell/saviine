@@ -18,8 +18,8 @@ static int cafiine_handshake(int sock);
 //#define BYTE_STATFILE       0x05
 //#define BYTE_EOF            0x06
 //#define BYTE_GETPOS         0x07
-//#define BYTE_REQUEST        0x08
-//#define BYTE_REQUEST_SLOW   0x09
+#define BYTE_REQUEST        0x08
+#define BYTE_REQUEST_SLOW   0x09
 #define BYTE_HANDLE         0x0A
 #define BYTE_DUMP           0x0B
 #define BYTE_PING           0x0C
@@ -80,11 +80,11 @@ error:
 }
 
 
-void cafiine_send_handle(int sock, int client, const char *path, int handle)
+int cafiine_send_handle(int sock, int client, const char *path, int handle)
 {
     while (bss.lock) GX2WaitForVsync();
     bss.lock = 1;
-
+	
     CHECK_ERROR(sock == -1);
 
     // create and send buffer with : [cmd id][handle][path length][path data ...]
@@ -104,14 +104,23 @@ void cafiine_send_handle(int sock, int client, const char *path, int handle)
         ret = sendwait(sock, buffer, 1 + 4 + 4 + len_path);
         CHECK_ERROR(ret < 0);
 
-        // wait reply
+		 // wait reply
         ret = recvbyte(sock);
-        CHECK_ERROR(ret != BYTE_SPECIAL);
+		if(ret == BYTE_REQUEST){
+			ret = 1;
+		}else{
+			ret = 2;
+		}
+        // wait reply
+        int special_ret = recvbyte(sock);
+        CHECK_ERROR(special_ret != BYTE_SPECIAL);
+		bss.lock = 0;
+		return ret;
     }
 
 error:
     bss.lock = 0;
-    return;
+    return -1;
 }
 
 void cafiine_send_file(int sock, char *file, int size, int fd) {

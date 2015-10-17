@@ -21,8 +21,8 @@ namespace saviine_server
         //public const byte BYTE_STATFILE = 0x05;
         //public const byte BYTE_EOF = 0x06;
         //public const byte BYTE_GETPOS = 0x07;
-        //public const byte BYTE_REQUEST = 0x08;
-        //public const byte BYTE_REQUEST_SLOW = 0x09;
+        public const byte BYTE_REQUEST = 0x08;
+        public const byte BYTE_REQUEST_SLOW = 0x09;
         public const byte BYTE_HANDLE = 0x0A;
         public const byte BYTE_DUMP = 0x0B;
         public const byte BYTE_PING = 0x0C;
@@ -74,17 +74,22 @@ namespace saviine_server
         public static string logs_root = "logs";
 
         const uint BUFFER_SIZE = 64 * 1024;
-
+        static Boolean fastmode = false;
         static void Main(string[] args)
         {
             if (args.Length > 1)
             {
-                Console.Error.WriteLine("Usage: saviine_server [rootdir]");
+                Console.Error.WriteLine("Usage: saviine_server [fastmode|fast]");
                 return;
             }
             if (args.Length == 1)
             {
-                root = args[0];
+                if (args[0].Equals("fastmode") || args[0].Equals("fast") || args[0].Equals("-fast"))
+                {
+                    fastmode = true;
+                    Console.WriteLine("Now using fastmode");
+                }
+                         
             }
             // Check for cafiine_root and logs folder
             if (!Directory.Exists(root))
@@ -156,9 +161,7 @@ namespace saviine_server
 
                     uint[] ids = reader.ReadUInt32s(4);
 
-                    // Log connection
-                    Console.WriteLine(name + " Accepted connection from client " + client.Client.RemoteEndPoint.ToString());
-                    Console.WriteLine(name + " TitleID: " + ids[0].ToString("X8") + "-" + ids[1].ToString("X8"));
+                   
 
 
                    string LocalRoot = root + "\\" + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + "\\";
@@ -174,6 +177,9 @@ namespace saviine_server
                            Directory.CreateDirectory(LocalRoot);
                        }
                    }
+                   // Log connection
+                   Console.WriteLine(name + " Accepted connection from client " + client.Client.RemoteEndPoint.ToString());
+                   Console.WriteLine(name + " TitleID: " + ids[0].ToString("X8") + "-" + ids[1].ToString("X8"));
 
                     // Create log file for current thread
                     log = new StreamWriter(logs_root + "\\" + DateTime.Now.ToString("yyyy-MM-dd") + "-" + name + "-" + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + ".txt", true, Encoding.ASCII, 1024*64);
@@ -201,7 +207,16 @@ namespace saviine_server
 
                                     // Add new file for incoming data
                                     files_request.Add(fd, new FileStream(LocalRoot + path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write));
-
+                                    // Send response
+                                    if (fastmode) {
+                                        Log(log, "fast");
+                                        writer.Write(BYTE_REQUEST);
+                                    }
+                                    else
+                                    {
+                                        Log(log, "slow");
+                                        writer.Write(BYTE_REQUEST_SLOW);
+                                    }
                                     // Send response
                                     writer.Write(BYTE_SPECIAL);
                                     break;
@@ -230,8 +245,7 @@ namespace saviine_server
 
                                             break;
                                         }
-                                    }
-
+                                    }                                    
                                     // Send response
                                     writer.Write(BYTE_SPECIAL);
                                     break;

@@ -55,7 +55,7 @@ struct bss_t {
 void cafiine_connect(int *socket);
 void cafiine_disconnect(int socket);
 int cafiine_fopen(int socket, int *result, const char *path, const char *mode, int *handle);
-void cafiine_send_handle(int sock, int client, const char *path, int handle);
+int cafiine_send_handle(int sock, int client, const char *path, int handle);
 void cafiine_send_file(int sock, char *file, int size, int fd);
 int cafiine_fread(int socket, int *result, void *buffer, int size, int count, int fd);
 int cafiine_fclose(int socket, int *result, int fd);
