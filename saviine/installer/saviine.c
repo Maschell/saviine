@@ -1,6 +1,6 @@
-#include "../../libwiiu/src/coreinit.h"
-#include "../../libwiiu/src/socket.h"
-#include "../../libwiiu/src/vpad.h"
+#include "../../../../libwiiu/src/coreinit.h"
+#include "../../../../libwiiu/src/socket.h"
+#include "../../../../libwiiu/src/vpad.h"
 
 #define assert(x) \
     do { \
@@ -175,26 +175,26 @@ void start() {
         /* ****************************************************************** */
         
         /* Copy in our resident cafiine client. */
-        unsigned int len = sizeof(cafiine_text_bin);
+        unsigned int len = sizeof(saviine_text_bin);
         unsigned char *loc = (unsigned char *)((char *)INSTALL_ADDR + 0xa0000000);
         
         while (len--) {
-            loc[len] = cafiine_text_bin[len];
+            loc[len] = saviine_text_bin[len];
         }
 
         /* server IP address */
         ((unsigned int *)loc)[0] = ip.full; //PC_IP;
 
-        DCFlushRange(loc, sizeof(cafiine_text_bin));
+        DCFlushRange(loc, sizeof(saviine_text_bin));
 
         struct magic_t {
             void *real;
             void *replacement;
             void *call;
-        } *magic = (struct magic_t *)cafiine_magic_bin;
-        len = sizeof(cafiine_magic_bin) / sizeof(struct magic_t);
+        } *magic = (struct magic_t *)saviine_magic_bin;
+        len = sizeof(saviine_magic_bin) / sizeof(struct magic_t);
         
-        int *space = (int *)(loc + sizeof(cafiine_text_bin));
+        int *space = (int *)(loc + sizeof(saviine_text_bin));
         /* Patch branches to it. */
         while (len--) {
             *(int *)(0xa0000000 | (int)magic[len].call) = (int)space - 0xa0000000;

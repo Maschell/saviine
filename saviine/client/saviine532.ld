@@ -1,4 +1,4 @@
-OUTPUT(cafiine532.elf);
+OUTPUT(saviine532.elf);
 
 SECTIONS {
 	.text 0x011de000 : {
