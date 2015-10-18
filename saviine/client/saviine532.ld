@@ -1,15 +1,18 @@
 OUTPUT(saviine532.elf);
 
 SECTIONS {
-	.text 0x011de000 : {
+	.text 0x011e0000 : {
 		server_ip = .;
 		. = . + 4;
 		*(.text._start);
 		*(.text*);
 		*(.magicptr*);
-	}
+	}	
 	.magic : {
 		*(.magic*);
+	}
+	.rodata : {
+		*(.rodata*);
 	}
 	/DISCARD/ : {
 		*(*);
@@ -27,9 +30,11 @@ PROVIDE(FSAOpenFile = 0x10621f8);
 PROVIDE(FSInit = 0x10683c8);
 PROVIDE(FSShutdown = 0x1068538);
 PROVIDE(FSAddClientEx = 0x10685fc);
+PROVIDE(FSAddClient = 0x010689fc);
 PROVIDE(FSDelClient = 0x1068a08);
 PROVIDE(FSOpenFile = 0x106ef7c);
 PROVIDE(FSOpenFileAsync = 0x0106a434);
+PROVIDE(FSInitCmdBlock = 0x01068c54);
 
 PROVIDE(FSCloseFile = 0x106f088);
 PROVIDE(FSReadFile = 0x106f108);
@@ -67,10 +72,14 @@ PROVIDE(memcpy = 0x1035a68);
 PROVIDE(memset = 0x1035a54);
 PROVIDE(MEMAllocFromDefaultHeapEx = 0x1004e9c0);
 PROVIDE(MEMFreeToDefaultHeap = 0x100b487c);
+PROVIDE(MEMAllocFromDefaultHeapEx = 0x1004e9c0);
+PROVIDE(MEMAllocFromDefaultHeap = 0x100b4878);
+PROVIDE(MEMFreeToDefaultHeap = 0x100b487c);
 
 /* OS data */
 PROVIDE(title_id = 0x100136D0);
 
-/* Libs */
+/* OS methods */
+PROVIDE(__os_snprintf = 0x102f09c);
 PROVIDE(OSDynLoad_FindExport = 0x102b790);
 PROVIDE(OSDynLoad_Acquire = 0x102a31c);

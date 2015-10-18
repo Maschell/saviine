@@ -1,5 +1,5 @@
 #include "main.h"
-#include "../common/fs_defs.h"
+
 #define DECL(res, name, ...) \
 	extern res name(__VA_ARGS__); \
 	res (* real_ ## name)(__VA_ARGS__)  __attribute__((section(".magicptr"))); \
@@ -19,14 +19,13 @@ extern void OSDynLoad_Acquire (char* rpl, unsigned int *handle);
 extern void OSDynLoad_FindExport (unsigned int handle, int isdata, char *symbol, void *address);
 void GX2WaitForVsync(void);
 static void dump_saves(void *pClient, void *pCmd,int error, int client);
-// Async
-typedef void (*FSAsyncCallback)(void *pClient, void *pCmd, int result, void *context);
-typedef struct
-{
-    FSAsyncCallback userCallback;
-    void            *userContext;
-    void            *ioMsgQueue;
-} FSAsyncParams;
+
+static int strlen(char* path) {
+    int i = 0;
+    while (path[i++])
+        ;
+    return i;
+}
 
 DECL(int, FSAInit, void) {
     if ((int)bss_ptr == 0x0a000000) {
@@ -38,16 +37,18 @@ DECL(int, FSAInit, void) {
 DECL(int, FSAShutdown, void) {
     return real_FSAShutdown();
 }
-DECL(int, FSAAddClient, void *r3) {
+DECL(int, FSAAddClient, void *r3) {	
     int res = real_FSAAddClient(r3);
-
+	
     if ((int)bss_ptr != 0x0a000000 && res < MAX_CLIENT && res >= 0) {
         cafiine_connect(&bss.socket_fsa[res]);
     }
+		
 
     return res;
 }
 DECL(int, FSADelClient, int client) {
+	
     if ((int)bss_ptr != 0x0a000000 && client < MAX_CLIENT && client >= 0) {
         cafiine_disconnect(bss.socket_fsa[client]);
     }
@@ -79,52 +80,96 @@ static int client_num(void *pClient) {
     return -1;
 }
 
-DECL(int, FSOpenFile, void *pClient, void *pCmd, const char *path, const char *mode, int *handle, int error) {
-   
+DECL(int, FSInit, void) {
+    if ((int)bss_ptr == 0x0a000000) {
+        bss_ptr = memalign(sizeof(struct bss_t), 0x40);
+        memset(bss_ptr, 0, sizeof(struct bss_t));
+    }
+    return real_FSInit();
+}
+DECL(int, FSShutdown, void) {
+    return real_FSShutdown();
+}
+DECL(int, FSDelClient, void *pClient) {
     if ((int)bss_ptr != 0x0a000000) {
         int client = client_num(pClient);
         if (client < MAX_CLIENT && client >= 0) {
-            if(bss.savesDumped == 0){				
-				dump_saves(pClient,pCmd,error,client);
-				bss.savesDumped = 1;				
-			}	
+            cafiine_disconnect(bss.socket_fs[client]);
+            clietn_num_free(client);
         }
     }
-
-    return real_FSOpenFile(pClient, pCmd, path, mode, handle, error);
+    return real_FSDelClient(pClient);
 }
+DECL(int, FSAddClientEx, void *r3, void *r4, void *r5) {
+    int res = real_FSAddClientEx(r3, r4, r5);
+	if(bss.saveFolderChecked == 1) return res;
+    if ((int)bss_ptr != 0x0a000000 && res >= 0) {
+        //int client = client_num_alloc(r3);
+        //if (client < MAX_CLIENT && client >= 0) {
+		// create game save path	
+			if(bss.saveFolderChecked < 2){
+				bss.saveFolderChecked = 1;
+				// Create client and cmd block
+				FSClient* pClient = (FSClient*)malloc(sizeof(FSClient));
+				FSCmdBlock* pCmd = (FSCmdBlock*)malloc(sizeof(FSCmdBlock));
+				if (pClient && pCmd)
+					{
+					// Add client to FS.
+					FSAddClient(pClient, FS_RET_NO_ERROR);
+					int client = client_num_alloc(pClient);
+					if(client < MAX_CLIENT && client >= 0) {
+						cafiine_connect(&bss.socket_fs[client]);						
+					}else{
+						goto error;
+					}
+					// Init command block.
+					FSInitCmdBlock(pCmd);
+					
+					dump_saves(pClient, pCmd,-1, client);
+					bss.saveFolderChecked = 2;
+					
+					
+			error:		
+					real_FSDelClient(pClient);	
+					free(pClient);
+					free(pCmd);
+				}
+			}
+            //cafiine_connect(&bss.socket_fs[client]);
+        //}
+    }	
+    return res;
+}
+
 
 static void init_Save(){
 	int (*SAVEInit)();
-	unsigned int save_handle;				
-	char buffer[50];
-	int i = 0;
-	buffer[i++] = 'n';
-	buffer[i++] = 'n';
-	buffer[i++] = '_';
-	buffer[i++] = 's';
-	buffer[i++] = 'a';
-	buffer[i++] = 'v';
-	buffer[i++] = 'e';
-	buffer[i++] = '.';
-	buffer[i++] = 'r';
-	buffer[i++] = 'p';
-	buffer[i++] = 'l';
-	buffer[i++] = '\0';
-	OSDynLoad_Acquire(buffer, &save_handle);		
-	i = 0;
-	buffer[i++] = 'S';
-	buffer[i++] = 'A';
-	buffer[i++] = 'V';
-	buffer[i++] = 'E';
-	buffer[i++] = 'I';
-	buffer[i++] = 'n';
-	buffer[i++] = 'i';
-	buffer[i++] = 't';
-	buffer[i++] = '\0';		
-
-	OSDynLoad_FindExport(save_handle, 0, buffer, &SAVEInit);
+	unsigned int save_handle;
+	OSDynLoad_Acquire("nn_save.rpl", &save_handle);
+	OSDynLoad_FindExport(save_handle, 0, "SAVEInit", &SAVEInit);
 	SAVEInit();					
+}
+
+static long getPesistentID(){
+	unsigned int nn_act_handle;
+	unsigned long (*GetPersistentIdEx)(unsigned char);	
+	int (*GetSlotNo)(void);
+	void (*nn_Initialize)(void);
+	void (*nn_Finalize)(void);
+	OSDynLoad_Acquire("nn_act.rpl", &nn_act_handle);	
+	OSDynLoad_FindExport(nn_act_handle, 0, "GetPersistentIdEx__Q2_2nn3actFUc", &GetPersistentIdEx);
+	OSDynLoad_FindExport(nn_act_handle, 0, "GetSlotNo__Q2_2nn3actFv", &GetSlotNo);
+	OSDynLoad_FindExport(nn_act_handle, 0, "Initialize__Q2_2nn3actFv", &nn_Initialize);
+	OSDynLoad_FindExport(nn_act_handle, 0, "Finalize__Q2_2nn3actFv", &nn_Finalize);
+	
+	nn_Initialize(); // To be sure that it is really Initialized
+	
+	unsigned char slotno = GetSlotNo();
+	long idlong = GetPersistentIdEx(slotno);
+	
+	
+	nn_Finalize(); //must be called an equal number of times to nn_Initialize
+	return idlong;
 }
 
 #define DUMP_BLOCK_SIZE (0x200 * 100)
@@ -134,11 +179,11 @@ static int dump_dir(void *pClient,int client, void *pCmd, char *path, int error,
 				int my_handle = handle +1;
 				int ret = 0;
 				 if ((ret = FSOpenDir(pClient, pCmd, path, &dir_handle, FS_RET_ALL_ERROR)) == FS_STATUS_OK)
-                {
-					char new_mode[2];
-					new_mode[0] = 'r';
-					new_mode[1] = '\0';					
-					
+                {		
+					char buffer[strlen(path) + 25];
+								
+					__os_snprintf(buffer, sizeof(buffer), "open dir %s",path);	
+					log_string(bss.socket_fsa[client], buffer, BYTE_LOG_STR);
                     FSDirEntry dir_entry;
                     while (FSReadDir(pClient,  pCmd, dir_handle, &dir_entry, FS_RET_ALL_ERROR) == FS_STATUS_OK)
                     {
@@ -155,30 +200,20 @@ static int dump_dir(void *pClient,int client, void *pCmd, char *path, int error,
 						}					
 						full_path[i++] = '\0';
 							
-						log_string(bss.socket_fsa[client], full_path, BYTE_LOG_STR);
 						
-						if((dir_entry.stat.flag&FS_STAT_FLAG_IS_DIRECTORY) == FS_STAT_FLAG_IS_DIRECTORY){
-							char type[4];
-							type[0] = 'd';
-							type[1] = 'i';
-							type[2] = 'r';
-							type[3] = '\0';
-							log_string(bss.socket_fsa[client], type, BYTE_LOG_STR);
+						
+						if((dir_entry.stat.flag&FS_STAT_FLAG_IS_DIRECTORY) == FS_STAT_FLAG_IS_DIRECTORY){							
+							log_string(bss.socket_fsa[client], "-> dir", BYTE_LOG_STR);
 							dump_dir(pClient,client, pCmd,full_path,-1,my_handle);							
-						}else{
-							char type[5];
-							type[0] = 'f';
-							type[1] = 'i';
-							type[2] = 'l';
-							type[3] = 'e';
-							type[4] = '\0';
-							log_string(bss.socket_fsa[client], type, BYTE_LOG_STR);
-							
+						}else{						
 							//DUMP							  
-							ret = real_FSOpenFile(pClient,  pCmd, full_path, new_mode, &my_handle, FS_RET_ALL_ERROR);								
+							ret = FSOpenFile(pClient,  pCmd, full_path, "r", &my_handle, FS_RET_ALL_ERROR);								
 							if (ret >= 0) {	
+								__os_snprintf(buffer, sizeof(buffer), "dumping %s",dir_entry.name);	
+								log_string(bss.socket_fsa[client], buffer, BYTE_LOG_STR);
 								int  my_ret = cafiine_send_handle(bss.socket_fsa[client], client, full_path, my_handle);
-								log_string(bss.socket_fsa[client], full_path, BYTE_LOG_STR);
+								
+								
 								
 								int size = (my_ret == 1 ? DUMP_BLOCK_SIZE : DUMP_BLOCK_SIZE_SLOW);
 								void * buffer = memalign(sizeof(char) * size, 0x40);
@@ -190,8 +225,9 @@ static int dump_dir(void *pClient,int client, void *pCmd, char *path, int error,
 								free(buffer);
 								FSCloseFile(pClient,  pCmd, my_handle, -1);
 							}else{
+								char type[2];
 								type[0] = '9' + ret;
-								type[1] = '0';
+								type[1] = '\0';
 								log_string(bss.socket_fsa[client], type, BYTE_LOG_STR);
 							}
 						}	
@@ -204,128 +240,20 @@ static int dump_dir(void *pClient,int client, void *pCmd, char *path, int error,
 
 static void dump_saves(void *pClient, void *pCmd,int error, int client){
 				init_Save();
-					
-				int i = 0;				
-				char save_path[255];
-				char save_user[9];
-				char save_base[11];
-				char save_common[7];
+				long id = getPesistentID();
 				
-				save_base[i++]  = '/';
-				save_base[i++]  = 'v';
-				save_base[i++]  = 'o';
-				save_base[i++]  = 'l';
-				save_base[i++]  = '/';
-				save_base[i++]  = 's';
-				save_base[i++]  = 'a';
-				save_base[i++]  = 'v';
-				save_base[i++]  = 'e';
-				save_base[i++]  = '/';
-				save_base[i++]  = '\0';
-				i = 0;			
+				log_string(bss.socket_fsa[client], "dumping user savedata", BYTE_LOG_STR);
 				
-				save_user[i++] = '8';
-				save_user[i++] = '0';
-				save_user[i++] = '0';
-				save_user[i++] = '0';
-				save_user[i++] = '0';
-				save_user[i++] = '0';
-				save_user[i++] = '0';
-				save_user[i++] = '0';
-				save_user[i++]  = '\0';
-				
-				i = 0;
-				save_common[i++] = 'c';
-				save_common[i++] = 'o';
-				save_common[i++] = 'm';
-				save_common[i++] = 'm';
-				save_common[i++] = 'o';
-				save_common[i++] = 'n';
-				save_common[i++] = '\0';
-				
-				i = 0;
-				char *save_base_ptr = (char *)save_base;
-				while(*save_base_ptr) {
-					save_path[i++] = *save_base_ptr++;
+				if(id >= 0x80000000 && id <= 0x90000000){		
+					char savepath[20];
+					__os_snprintf(savepath, sizeof(savepath), "/vol/save/%08x",id);						
+					dump_dir(pClient,client,pCmd,savepath,-1,50);
 				}
 				
-				int k = i;
-				char *save_user_ptr = (char *)save_user;
-				while(*save_user_ptr) {
-					save_path[i++] = *save_user_ptr++;
-				}					
-				save_path[i++] = '\0';
-				int id = 1;
-				do{
-					//log_string(bss.socket_fsa[client], save_path, BYTE_LOG_STR);
-					if (dump_dir(pClient,client,pCmd,save_path,-1,50) == 0);// id = 257; // break if successful
-					int first = id/16;
-					int seconds = id%16;
-					if(first <= 9)
-						save_path[16] = '0' + first;
-					else
-						save_path[16] = 'a' + (first - 10);
-						
-					if(seconds <= 9)
-						save_path[17] = '0' + seconds;
-					else
-						save_path[17] = 'a' + (seconds - 10);
+				log_string(bss.socket_fsa[client], "dumping common savedata", BYTE_LOG_STR);
+				dump_dir(pClient,client,pCmd,"/vol/save/common/",error,60);				
 				
-					id++;
-				}while(id < 257);
-				
-				i = k;
-				
-				char *save_common_ptr = (char *)save_common;
-				while(*save_common_ptr) {
-					save_path[i++] = *save_common_ptr++;
-				}					
-				save_path[i++] = '\0';
-				
-				log_string(bss.socket_fsa[client], save_path, BYTE_LOG_STR);
-				dump_dir(pClient,client,pCmd,save_path,error,60);
-				
-				i = 0;
-				char info[6];				
-				info[i++] = 'd';
-				info[i++] = 'o';
-				info[i++] = 'n';
-				info[i++] = 'e';
-				info[i++] = '!';
-				info[i++] = '\0';
-				log_string(bss.socket_fsa[client], info, BYTE_LOG_STR);
-}
-
-DECL(int, FSInit, void) {
-    if ((int)bss_ptr == 0x0a000000) {
-        bss_ptr = memalign(sizeof(struct bss_t), 0x40);
-        memset(bss_ptr, 0, sizeof(struct bss_t));
-    }
-    return real_FSInit();
-}
-DECL(int, FSShutdown, void) {
-    return real_FSShutdown();
-}
-DECL(int, FSAddClientEx, void *r3, void *r4, void *r5) {
-    int res = real_FSAddClientEx(r3, r4, r5);
-
-    if ((int)bss_ptr != 0x0a000000 && res >= 0) {
-        int client = client_num_alloc(r3);
-        if (client < MAX_CLIENT && client >= 0) {
-            cafiine_connect(&bss.socket_fs[client]);
-        }
-    }	
-    return res;
-}
-DECL(int, FSDelClient, void *pClient) {
-    if ((int)bss_ptr != 0x0a000000) {
-        int client = client_num(pClient);
-        if (client < MAX_CLIENT && client >= 0) {
-            cafiine_disconnect(bss.socket_fs[client]);
-            clietn_num_free(client);
-        }
-    }
-    return real_FSDelClient(pClient);
+				log_string(bss.socket_fsa[client], "done!", BYTE_LOG_STR);
 }
 
 #define MAKE_MAGIC(x) { x, my_ ## x, &real_ ## x }
@@ -339,7 +267,6 @@ struct magic_t {
     MAKE_MAGIC(FSAShutdown),
     MAKE_MAGIC(FSAAddClient),
     MAKE_MAGIC(FSADelClient),	
-	MAKE_MAGIC(FSOpenFile), 
     MAKE_MAGIC(FSInit),
     MAKE_MAGIC(FSShutdown),
     MAKE_MAGIC(FSAddClientEx),

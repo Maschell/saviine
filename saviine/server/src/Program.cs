@@ -143,6 +143,12 @@ namespace saviine_server
             log.Flush();
             Console.WriteLine(str);
         }
+        static void LogNoLine(StreamWriter log, String str)
+        {
+            log.Write(str);
+            log.Flush();
+            Console.Write(str);
+        }
 
         static void Handle(object client_obj)
         {
@@ -208,15 +214,14 @@ namespace saviine_server
                                     // Add new file for incoming data
                                     files_request.Add(fd, new FileStream(LocalRoot + path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write));
                                     // Send response
-                                    if (fastmode) {
-                                        Log(log, "fast");
+                                    if (fastmode) {                                       
                                         writer.Write(BYTE_REQUEST);
                                     }
                                     else
-                                    {
-                                        Log(log, "slow");
+                                    {                                        
                                         writer.Write(BYTE_REQUEST_SLOW);
                                     }
+                                    LogNoLine(log, "-> [");
                                     // Send response
                                     writer.Write(BYTE_SPECIAL);
                                     break;
@@ -237,8 +242,8 @@ namespace saviine_server
                                             FileStream dump_file = item.Value;
                                             if (dump_file == null)
                                                 break;
-
-                                            Log(log, name + " -> dump(\"" + Path.GetFileName(dump_file.Name) + "\") " + (sz / 1024).ToString() + "kB");
+                                            
+                                            LogNoLine(log, ".");
 
                                             // Write to file
                                             dump_file.Write(buffer, 0, sz);
@@ -281,8 +286,8 @@ namespace saviine_server
                                                 if (dump_file == null)
                                                     break;
 
-                                                Log(log, name + " -> dump complete(\"" + Path.GetFileName(dump_file.Name) + "\")");
-
+                                                LogNoLine(log,"]");
+                                                Log(log, "");
                                                 // Close file and remove from request list
                                                 dump_file.Close();
                                                 files_request.Remove(fd);
@@ -311,7 +316,7 @@ namespace saviine_server
                                     string str = reader.ReadString(Encoding.ASCII, len_str - 1);
                                     if (reader.ReadByte() != 0) throw new InvalidDataException();
 
-                                    Log(log, name + " LogString =>(\"" + str + "\")");
+                                    Log(log,"-> " + str);
                                     break;
                                 }
                             default:

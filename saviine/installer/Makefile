@@ -23,7 +23,9 @@ main532:
 	cp -r $(root)/*.o $(build)
 	rm $(root)/*.o
 	#$(LD) $(LDFLAGS) -o $(build)/code532.bin $(build)/saviine.o $(libs)/532/*.o `find $(build) -name "*.o" ! -name "saviine.o"`
-	$(LD) $(LDFLAGS) -o $(build)/code532.bin $(build)/saviine.o `find $(build) -name "*.o" ! -name "saviine.o"`
+	$(LD) $(LDFLAGS) -o $(build)/code532.bin $(build)/saviine.o `find $(build) -name "*.o" ! -name "saviine.o"` -L"$(DEVKITPPC)/lib/gcc/powerpc-eabi/4.8.2" -lgcc
 
 clean:
+	make -C ../client/ clean
 	rm -rf $(build)/*
+	

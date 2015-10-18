@@ -1,4 +1,5 @@
 /* string.h */
+#include "../common/fs_defs.h"
 #define NULL ((void *)0)
 
 void *memcpy(void *dst, const void *src, int bytes);
@@ -6,22 +7,29 @@ void *memset(void *dst, int val, int bytes);
 
 /* malloc.h */
 extern void *(* const MEMAllocFromDefaultHeapEx)(int size, int align);
+extern void *(* const MEMAllocFromDefaultHeap)(int size);
 extern void *(* const MEMFreeToDefaultHeap)(void *ptr);
 #define memalign (*MEMAllocFromDefaultHeapEx)
+#define malloc (*MEMAllocFromDefaultHeap)
 #define free (*MEMFreeToDefaultHeap)
 /* socket.h */
 #define AF_INET 2
 #define SOCK_STREAM 1
 #define IPPROTO_TCP 6
 
-
-
+/* FS Functions */
+extern FSStatus FSAddClient(FSClient *pClient, FSRetFlag errHandling);
+extern void FSInitCmdBlock(FSCmdBlock *pCmd);
+extern FSStatus FSCloseDir(FSClient *pClient, FSCmdBlock *pCmd, int dh, FSRetFlag errHandling);
+extern FSStatus FSOpenFile(FSClient *pClient, FSCmdBlock *pCmd, char *path,char *mode,int *dh,FSRetFlag errHandling);
+				
 extern void socket_lib_init();
 extern int socket(int domain, int type, int protocol);
 extern int socketclose(int socket);
 extern int connect(int socket, void *addr, int addrlen);
 extern int send(int socket, const void *buffer, int size, int flags);
 extern int recv(int socket, void *buffer, int size, int flags);
+extern int __os_snprintf(char* s, int n, const char * format, ...);
 
 struct in_addr {
 	unsigned int s_addr;
@@ -45,7 +53,7 @@ struct bss_t {
     void *pClient_fs[MAX_CLIENT];
     int socket_fs[MAX_CLIENT];
 	char save_path[255];
-	volatile int savesDumped;
+	volatile int saveFolderChecked;
     volatile int lock;
 };
 

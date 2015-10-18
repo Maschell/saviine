@@ -33,25 +33,37 @@ CFLAGS := -O2 -Wall -x c -std=gnu99 \
 SRC := $(wildcard *.S) $(wildcard *.c)
 OBJ := $(patsubst %.S,%.o,$(patsubst %.c,%.o,$(SRC)))
 
-all: ../installer/saviine532.h
 
-../installer/saviine%.h: saviine%.text.bin saviine%.magic.bin
-	xxd -i saviine$*.magic.bin | sed "s/unsigned/static const unsigned/g;s/ine$*/ine/g" > $@
-	xxd -i saviine$*.text.bin | sed "s/unsigned/static const unsigned/g;s/ine$*/ine/g" >> $@
+# Simulate an order only dependency
+BUILD_REQ := $(filter-out $(wildcard build),build)
+BIN_REQ := $(filter-out $(wildcard bin),bin)
 
-saviine%.text.bin: saviine%.elf
+all: build/saviine532.elf copy
+
+../installer/saviine%.h: build/saviine%.text.bin build/saviine%.magic.bin $(BIN_REQ)
+	xxd -i build/saviine$*.magic.bin | sed "s/unsigned/static const unsigned/g;s/saviine$*/saviine/g" > $@
+	xxd -i build/saviine$*.text.bin | sed "s/unsigned/static const unsigned/g;s/saviine$*/saviine/g" >> $@
+
+build/saviine%.text.bin: build/saviine%.elf $(BUILD_REQ)
 	$(OBJCOPY) -j .text -O binary $< $@
-saviine%.magic.bin: saviine%.elf
+build/saviine%.magic.bin: build/saviine%.elf $(BUILD_REQ)
 	$(OBJCOPY) -j .magic -O binary $< $@
 
-saviine%.elf: saviine%.ld $(OBJ)
-	$(LD) -T $< $(OBJ)
+build/saviine%.elf: saviine%.ld $(OBJ) $(BUILD_REQ)
+	$(LD) -o $@ -T $< $(OBJ) -s -L"$(DEVKITPPC)/lib/gcc/powerpc-eabi/4.8.2" -lgcc
 
-%.o: %.c
+build/%.o: %.c $(BUILD_REQ)
 	$(CC) -c $(CFLAGS) -o $@ $+
-%.o: %.S
+build/%.o: %.S $(BUILD_REQ)
 	$(AS) $(SFLAGS) -o $@ $+
 
-clean:
-	rm -f $(wildcard *.o) $(wildcard *.elf) $(wildcard ../installer/saviine532.h)
+bin:
+	mkdir $@
+build:
+	mkdir $@
 
+copy:
+	cp build/saviine532.elf ../installer/bin/
+
+clean:
+	rm -rf $(wildcard build) $(wildcard bin) $(wildcard ../installer/saviine532.h)
