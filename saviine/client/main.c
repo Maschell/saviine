@@ -199,7 +199,7 @@ static int remove_files_in_dir(void * pClient,void * pCmd, char * path, int hand
 				return -1;
 			}
 		}					
-		if((FSCloseDir(pClient,  pCmd, handle, FS_RET_NO_ERROR)) <=0 ){
+		if((FSCloseDir(pClient,  pCmd, handle, FS_RET_NO_ERROR)) < 0 ){
 			log_string(bss.logsock, "error while closing dir", BYTE_LOG_STR);
 		}
 	}
@@ -306,146 +306,182 @@ static int dump_dir(void *pClient,int client, void *pCmd, char *path, int error,
                 }
 				return 0;
 }
-
+#define BUFFER_SIZE    (1024)*100
 static void handle_saves(void *pClient, void *pCmd,int error, int client){
-				log_string(bss.logsock, "handle_saves", BYTE_LOG_STR);
-				init_Save();
-				long id = getPesistentID();
-				
-				log_string(bss.logsock, "user savedata", BYTE_LOG_STR);
-				
-				if(id >= 0x80000000 && id <= 0x90000000){		
-					char savepath[20];
-					int mode;
-					__os_snprintf(savepath, sizeof(savepath), "/vol/save/%08x",id);	
-					log_string(bss.logsock, "Getting mode!", BYTE_LOG_STR);					
-					if(getMode(bss.socket_fsa[client],&mode)){						
-						if(mode == BYTE_MODE_D){
-							log_string(bss.logsock, "dump mode!", BYTE_LOG_STR);
-							dump_dir(pClient,client,pCmd,savepath,-1,50);							
-						}else if(mode == BYTE_MODE_I){
-							log_string(bss.logsock, "inject mode", BYTE_LOG_STR);
-							log_string(bss.logsock, "deleting current save", BYTE_LOG_STR);						
-							remove_files_in_dir(pClient,pCmd,savepath,0);								
-							injectFiles(pClient,pCmd,savepath,"/",-1);
-							log_string(bss.logsock, "flushing quota", BYTE_LOG_STR);		
-							FSFlushQuota(pClient,pCmd,savepath,-1);
+	log_string(bss.logsock, "handle_saves", BYTE_LOG_STR);
+	init_Save();
+	long id = getPesistentID();
+	int mode;
+	log_string(bss.logsock, "user savedata", BYTE_LOG_STR);
+	if(getMode(bss.socket_fsa[client],&mode)){
+		if(id >= 0x80000000 && id <= 0x90000000){		
+			char savepath[20];
+			
+			__os_snprintf(savepath, sizeof(savepath), "/vol/save/%08x",id);	
+			log_string(bss.logsock, "Getting mode!", BYTE_LOG_STR);					
+			{						
+				if(mode == BYTE_MODE_D){
+					log_string(bss.logsock, "dump mode!", BYTE_LOG_STR);
+					dump_dir(pClient,client,pCmd,savepath,-1,50);							
+				}else if(mode == BYTE_MODE_I){
+					log_string(bss.logsock, "inject mode", BYTE_LOG_STR);
+					log_string(bss.logsock, "deleting current save", BYTE_LOG_STR);						
+					remove_files_in_dir(pClient,pCmd,savepath,0);
+					int buf_size = BUFFER_SIZE;
+					char * pBuffer;
+					int failed = 0;
+					do{
+						buf_size -= 0x200;
+						if(buf_size < 0){
+							log_string(bss.logsock, "error on buffer allocation", BYTE_LOG_STR);
+ 							failed = 1;
+							break;									
+						}
+						pBuffer = (char *)MEMAllocFromDefaultHeapEx(buf_size, 0x40);
+					}while(!pBuffer);
+					if(!failed){
+						int result = injectFiles(pClient,pCmd,savepath,"/",pBuffer,buf_size,-1);
+						if(result == -1){
+							log_string(bss.logsock, "injection failed, trying to restore the data", BYTE_LOG_STR);
+							//TODO FSRollbackQuota
+						}else{
+							char logbugger[50];
+							__os_snprintf(logbugger, sizeof(logbugger), "injected %d files, flushing the data now",result);								
+							log_string(bss.logsock, logbugger, BYTE_LOG_STR);		
+							if(FSFlushQuota(pClient,pCmd,savepath,-1) == 0){
+								log_string(bss.logsock, "success", BYTE_LOG_STR);
+							}else{
+								log_string(bss.logsock, "failed", BYTE_LOG_STR);
+							}
 						}
 					}
 					
 				}
-				/*
-				log_string(bss.logsock, "dumping common savedata", BYTE_LOG_STR);
-				dump_dir(pClient,client,pCmd,"/vol/save/common/",error,60);
-				log_string(bss.logsock, "done!", BYTE_LOG_STR);*/
+			}
+			
+		}
+		if(mode == BYTE_MODE_D){
+			log_string(bss.logsock, "dumping common savedata", BYTE_LOG_STR);
+			dump_dir(pClient,client,pCmd,"/vol/save/common/",error,60);
+			log_string(bss.logsock, "done!", BYTE_LOG_STR);
+		}
+	}
 }
 
 
-#define BUFFER_SIZE    (1024)*100
-void injectFiles(void *pClient, void *pCmd, char * path,char * relativepath, int error){
+int injectFiles(void *pClient, void *pCmd, char * path,char * relativepath,char *  pBuffer, int buffer_size, int error){
 
 	//FSStatus (*FSWriteFileWithPos) (FSClient *pClient, FSCmdBlock *pCmd,  const void  *source,int size,int count,int fpos,int fileHandle,int flag,FSRetFlag errHandling);
 	int client = client_num(pClient);
-	
+	int failed = 0;
+	int filesinjected = 0;
 	int type = 0;
 	log_string(bss.logsock, "injecting files", BYTE_LOG_STR);
 	char namebuffer[255];
 	char logbugger[255];
 	int filesize = 0;
 
-	int buf_size = BUFFER_SIZE;
-	char * pBuffer;
-	do{
-		buf_size -= 0x200;
-		if(buf_size < 0){
-			log_string(bss.logsock, "error on buffer allocation", BYTE_LOG_STR);
-			return;
-		}
-		pBuffer = (char *)MEMAllocFromDefaultHeapEx(buf_size, 0x40);
-	}while(!pBuffer);
 	
-	__os_snprintf(logbugger, sizeof(logbugger), "buffer size: %d bytes",buf_size);	
-	log_string(bss.logsock, logbugger, BYTE_LOG_STR);
 	
-	while(getFiles(bss.socket_fsa[client],path,namebuffer, &type,&filesize)){	
-		if(DEBUG_LOG)log_string(bss.logsock, "got a file", BYTE_LOG_STR);
-		char newpath[strlen(path) + 1 + strlen(namebuffer)];
-		__os_snprintf(newpath, sizeof(newpath), "%s/%s",path,namebuffer);	
-		if(type == BYTE_FILE){
-			__os_snprintf(logbugger, sizeof(logbugger), "file: %s%s size: %d",relativepath,namebuffer,filesize);					
-			log_string(bss.logsock, logbugger, BYTE_LOG_STR);
-			if(DEBUG_LOG) log_string(bss.logsock, "downloading it", BYTE_LOG_STR);
+	if(!failed){
+		__os_snprintf(logbugger, sizeof(logbugger), "buffer size: %d bytes",buffer_size);	
+		log_string(bss.logsock, logbugger, BYTE_LOG_STR);
+		
+		while(getFiles(bss.socket_fsa[client],path,namebuffer, &type,&filesize) && !failed){
 			
-			int handle = 10;
-			if(FSOpenFile(pClient, pCmd, newpath,"w+",&handle,-1) >= 0){
-				if(DEBUG_LOG) log_string(bss.logsock, "file opened and created", BYTE_LOG_STR);
-				if(filesize > 0){
-					int myhandle;
-					int ret = 0;
-					if((cafiine_fopen(bss.socket_fsa[client], &ret, newpath, "r", &myhandle)) == 0 && ret == 0){
-						if(DEBUG_LOG)__os_snprintf(logbugger, sizeof(logbugger), "cafiine_fopen with handle %d",myhandle);	
-						if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);			
-							int size = sizeof(char);
-							int count = buf_size;
-							int retsize = 0;
-							int pos = 0;
-							while(pos < filesize){
-								if(DEBUG_LOG) log_string(bss.logsock, "reading", BYTE_LOG_STR);
-								if(DEBUG_LOG)__os_snprintf(logbugger, sizeof(logbugger), "count %d",count);	
-								if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);	
-								if(cafiine_fread(bss.socket_fsa[client], &retsize, pBuffer, count, myhandle) == 0){							
-									__os_snprintf(logbugger, sizeof(logbugger), "got %d",retsize);					
-									if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);	
-									int fwrite = 0;
-									if((fwrite = my_FSWriteFile(pClient, pCmd,  pBuffer,size,retsize,handle,0,0x0200)) >= 0){
-										__os_snprintf(logbugger, sizeof(logbugger), "wrote %d",retsize);					
-										if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);
-									}else{
-										__os_snprintf(logbugger, sizeof(logbugger), "my_FSWriteFile failed with error: %d",fwrite);					
-										if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);
-										log_string(bss.logsock, "error while FSWriteFile", BYTE_LOG_STR);
-									}	
-									__os_snprintf(logbugger, sizeof(logbugger), "old p %d new p %d",pos,pos+retsize);					
-									if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);								
-									pos += retsize;							
-								}else{
-									log_string(bss.logsock, "error while recieving file", BYTE_LOG_STR);
-									break;
-								}
-							}
-						
-							int result = 0;
-							if((cafiine_fclose(bss.socket_fsa[client], &result, myhandle,0)) == 0 && result == 0){
-								if(DEBUG_LOG) log_string(bss.logsock, "cafiine_fclose success", BYTE_LOG_STR);
-							}else{
-								log_string(bss.logsock, "cafiine_fclose failed", BYTE_LOG_STR);
-							}
-							
+			if(DEBUG_LOG)log_string(bss.logsock, "got a file", BYTE_LOG_STR);
+			char newpath[strlen(path) + 1 + strlen(namebuffer)];
+			__os_snprintf(newpath, sizeof(newpath), "%s/%s",path,namebuffer);	
+			if(type == BYTE_FILE){
+				__os_snprintf(logbugger, sizeof(logbugger), "file: %s%s size: %d",relativepath,namebuffer,filesize);					
+				log_string(bss.logsock, logbugger, BYTE_LOG_STR);
+				if(DEBUG_LOG) log_string(bss.logsock, "downloading it", BYTE_LOG_STR);
 				
-					}else{
-						log_string(bss.logsock, "cafiine_fopen failed", BYTE_LOG_STR);
+				int handle = 10;
+				if(FSOpenFile(pClient, pCmd, newpath,"w+",&handle,-1) >= 0){
+					if(DEBUG_LOG) log_string(bss.logsock, "file opened and created", BYTE_LOG_STR);
+					if(filesize > 0){
+						int myhandle;
+						int ret = 0;
+						if((cafiine_fopen(bss.socket_fsa[client], &ret, newpath, "r", &myhandle)) == 0 && ret == 0){
+							if(DEBUG_LOG)__os_snprintf(logbugger, sizeof(logbugger), "cafiine_fopen with handle %d",myhandle);	
+							if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);			
+								int size = sizeof(char);
+								int count = buffer_size;
+								int retsize = 0;
+								int pos = 0;
+								while(pos < filesize){
+									if(DEBUG_LOG) log_string(bss.logsock, "reading", BYTE_LOG_STR);
+									if(DEBUG_LOG)__os_snprintf(logbugger, sizeof(logbugger), "count %d",count);	
+									if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);	
+									if(cafiine_fread(bss.socket_fsa[client], &retsize, pBuffer, count, myhandle) == 0){							
+										__os_snprintf(logbugger, sizeof(logbugger), "got %d",retsize);					
+										if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);	
+										int fwrite = 0;
+										if((fwrite = my_FSWriteFile(pClient, pCmd,  pBuffer,size,retsize,handle,0,0x0200)) >= 0){
+											__os_snprintf(logbugger, sizeof(logbugger), "wrote %d",retsize);					
+											if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);
+										}else{
+											__os_snprintf(logbugger, sizeof(logbugger), "my_FSWriteFile failed with error: %d",fwrite);					
+											if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);
+											log_string(bss.logsock, "error while FSWriteFile", BYTE_LOG_STR);
+											failed = 1;
+										}	
+										__os_snprintf(logbugger, sizeof(logbugger), "old p %d new p %d",pos,pos+retsize);					
+										if(DEBUG_LOG) log_string(bss.logsock, logbugger, BYTE_LOG_STR);								
+										pos += retsize;							
+									}else{
+										log_string(bss.logsock, "error while recieving file", BYTE_LOG_STR);
+										failed = 1;
+										break;
+									}
+								}
+							
+								int result = 0;
+								if((cafiine_fclose(bss.socket_fsa[client], &result, myhandle,0)) == 0 && result == 0){
+									if(DEBUG_LOG) log_string(bss.logsock, "cafiine_fclose success", BYTE_LOG_STR);
+								}else{
+									log_string(bss.logsock, "cafiine_fclose failed", BYTE_LOG_STR);
+									failed = 1;
+								}
+								
+					
+						}else{
+							log_string(bss.logsock, "cafiine_fopen failed", BYTE_LOG_STR);
+						}
 					}
+					
+					if((FSCloseFile (pClient, pCmd, handle, -1)) < 0)
+						log_string(bss.logsock, "FSCloseFile failed", BYTE_LOG_STR);
+					
 				}
-
-				if((FSCloseFile (pClient, pCmd, handle, -1)) <= 0)
-					log_string(bss.logsock, "FSCloseFile failed", BYTE_LOG_STR);
-			}
-	
-		}else if( type == BYTE_FOLDER){	
-			__os_snprintf(logbugger, sizeof(logbugger), "dir: %s",namebuffer);				
-			log_string(bss.logsock, logbugger, BYTE_LOG_STR);					
-			if(DEBUG_LOG) log_string(bss.logsock, newpath, BYTE_LOG_STR);
-			if(FSMakeDir(pClient, pCmd, newpath, -1) == 0){
-				char op_offset[strlen(relativepath) + strlen(namebuffer)+ 1 + 1];
-				__os_snprintf(op_offset, sizeof(op_offset), "%s%s/",relativepath,namebuffer);	
-				injectFiles(pClient, pCmd, newpath,op_offset,error);
-			}else{
-				log_string(bss.logsock, "folder creation failed", BYTE_LOG_STR);
+				if(!failed) filesinjected++;
+			}else if( type == BYTE_FOLDER){	
+				__os_snprintf(logbugger, sizeof(logbugger), "dir: %s",namebuffer);				
+				log_string(bss.logsock, logbugger, BYTE_LOG_STR);					
+				if(DEBUG_LOG) log_string(bss.logsock, newpath, BYTE_LOG_STR);
+				if(FSMakeDir(pClient, pCmd, newpath, -1) == 0){
+					char op_offset[strlen(relativepath) + strlen(namebuffer)+ 1 + 1];
+					__os_snprintf(op_offset, sizeof(op_offset), "%s%s/",relativepath,namebuffer);	
+					int injectedsub = injectFiles(pClient, pCmd, newpath,op_offset,pBuffer,buffer_size,error);
+					if(injectedsub == -1){
+						failed = 1;						
+					}else{
+						filesinjected += injectedsub;
+					}
+				}else{
+					log_string(bss.logsock, "folder creation failed", BYTE_LOG_STR);
+					failed = 1;
+				}
 			}
 		}
+		free(pBuffer);
+		if(failed) return -1;
+		else return filesinjected;
+	}else{
+		return -1;
 	}
-	free(pBuffer);	
-	log_string(bss.logsock, "getting files done", BYTE_LOG_STR);
+	
 }
 
 #define MAKE_MAGIC(x) { x, my_ ## x, &real_ ## x }

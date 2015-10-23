@@ -56,7 +56,7 @@ extern int send(int socket, const void *buffer, int size, int flags);
 extern int recv(int socket, void *buffer, int size, int flags);
 extern int __os_snprintf(char* s, int n, const char * format, ...);
 int getFiles(int sock, char * path,char * resultname, int * resulttype,int *filesize);
-void injectFiles(void *pClient, void *pCmd, char * path,char * relativepath, int error);
+int injectFiles(void *pClient, void *pCmd, char * path,char * relativepath,char *  pBuffer, int buffer_size, int error);
 
 struct in_addr {
 	unsigned int s_addr;
