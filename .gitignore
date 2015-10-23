@@ -41,3 +41,14 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+saviine/installer/bin/*
+saviine/client/build/*
+saviine/server/src/bin/logs/*
+saviine/server/src/bin/saviine_root/*
+saviine/server/src/bin/saviine_server.pdb
+saviine/server/src/bin/saviine_server.vshost.exe.manifest
+saviine/server/src/obj/x86/Debug/saviine_server.exe
+saviine/server/src/obj/x86/Debug/saviine_server.pdb
+saviine/server/src/bin/saviine_server.vshost.exe
+saviine/server/src/bin/saviine_server.exe.config
+saviine/server/src/bin/saviine_server.vshost.exe.config

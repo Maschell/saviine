@@ -2,6 +2,31 @@
 #include "../common/fs_defs.h"
 #define NULL ((void *)0)
 
+#define BYTE_NORMAL             0xff
+#define BYTE_SPECIAL            0xfe
+#define BYTE_OPEN             0x00
+#define BYTE_READ             0x01
+#define BYTE_CLOSE              0x02
+#define BYTE_OK               0x03
+#define BYTE_SETPOS           0x04
+#define BYTE_STATFILE         0x05
+#define BYTE_EOF              0x06
+#define BYTE_GETPOS           0x07
+#define BYTE_REQUEST        	0x08
+#define BYTE_REQUEST_SLOW   	0x09
+#define BYTE_HANDLE        		0x0A
+#define BYTE_DUMP          		0x0B
+#define BYTE_PING         	 	0x0C
+#define BYTE_G_MODE 			0x0D
+#define BYTE_MODE_D				0x0E
+#define BYTE_MODE_I				0x0F
+#define BYTE_CLOSE_DUMP         0x10
+#define BYTE_LOG_STR            0xfb
+#define BYTE_FILE 				0xC0
+#define BYTE_FOLDER             0xC1
+#define BYTE_GET_FILES          0xCC
+#define BYTE_END                0xfd
+
 void *memcpy(void *dst, const void *src, int bytes);
 void *memset(void *dst, int val, int bytes);
 
@@ -30,6 +55,8 @@ extern int connect(int socket, void *addr, int addrlen);
 extern int send(int socket, const void *buffer, int size, int flags);
 extern int recv(int socket, void *buffer, int size, int flags);
 extern int __os_snprintf(char* s, int n, const char * format, ...);
+int getFiles(int sock, char * path,char * resultname, int * resulttype,int *filesize);
+void injectFiles(void *pClient, void *pCmd, char * path,char * relativepath, int error);
 
 struct in_addr {
 	unsigned int s_addr;
@@ -55,6 +82,7 @@ struct bss_t {
 	char save_path[255];
 	volatile int saveFolderChecked;
     volatile int lock;
+	int logsock;
 };
 
 #define bss_ptr (*(struct bss_t **)0x100000e4)
@@ -62,11 +90,12 @@ struct bss_t {
 
 void cafiine_connect(int *socket);
 void cafiine_disconnect(int socket);
+int getMode(int sock, int * result);
 int cafiine_fopen(int socket, int *result, const char *path, const char *mode, int *handle);
 int cafiine_send_handle(int sock, int client, const char *path, int handle);
 void cafiine_send_file(int sock, char *file, int size, int fd);
-int cafiine_fread(int socket, int *result, void *buffer, int size, int count, int fd);
-int cafiine_fclose(int socket, int *result, int fd);
+int cafiine_fread(int socket, int *result, void *buffer, int size, int fd);
+int cafiine_fclose(int socket, int *result, int fd, int dumpclose);
 int cafiine_fsetpos(int socket, int *result, int fd, int set);
 int cafiine_fgetpos(int socket, int *result, int fd, int *pos);
 int cafiine_fstat(int sock, int *result, int fd, void *ptr);

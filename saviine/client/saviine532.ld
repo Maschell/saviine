@@ -35,7 +35,7 @@ PROVIDE(FSDelClient = 0x1068a08);
 PROVIDE(FSOpenFile = 0x106ef7c);
 PROVIDE(FSOpenFileAsync = 0x0106a434);
 PROVIDE(FSInitCmdBlock = 0x01068c54);
-
+PROVIDE(FSMakeDir = 0x0106f8e0);
 PROVIDE(FSCloseFile = 0x106f088);
 PROVIDE(FSReadFile = 0x106f108);
 PROVIDE(FSReadFileWithPos = 0x106f194);
@@ -43,6 +43,9 @@ PROVIDE(FSGetPosFile = 0x106f4c0);
 PROVIDE(FSSetPosFile = 0x106f530);
 PROVIDE(FSGetStatFile = 0x106f5a0);
 PROVIDE(FSIsEof = 0x106f610);
+PROVIDE(FSWriteFile = 0x106F228);
+PROVIDE(FSFlushQuota = 0x106FAC8);
+
 
 /* */
 PROVIDE(FSGetStat = 0x0106fdc8);
@@ -54,7 +57,7 @@ PROVIDE(FSReadDir = 0x0106f780);
 PROVIDE(FSCloseDir = 0x0106f700);
 PROVIDE(FSChangeDir = 0x0106eefc);
 PROVIDE(FSCloseDir = 0x0106f700);
-
+PROVIDE(FSRemove  = 0x0106F960);
 
 /* GX2 methods */
 PROVIDE(GX2WaitForVsync = 0x1151964);
@@ -65,7 +68,7 @@ PROVIDE(socket = 0x10c21c8);
 PROVIDE(socketclose = 0x10c2314);
 PROVIDE(connect = 0x10c0828);
 PROVIDE(send = 0x10c16ac);
-PROVIDE(recv = 0x10c0aec);
+PROVIDE(recv = 0x10c0aec);  
 
 /* Standard library methods */
 PROVIDE(memcpy = 0x1035a68);

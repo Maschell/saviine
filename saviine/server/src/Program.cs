@@ -13,11 +13,11 @@ namespace saviine_server
     {
         public const byte BYTE_NORMAL = 0xff;
         public const byte BYTE_SPECIAL = 0xfe;
-        //public const byte BYTE_OPEN = 0x00;
-       // public const byte BYTE_READ = 0x01;
+        public const byte BYTE_OPEN = 0x00;
+        public const byte BYTE_READ = 0x01;
         public const byte BYTE_CLOSE = 0x02;
-        //public const byte BYTE_OK = 0x03;
-        //public const byte BYTE_SETPOS = 0x04;
+        public const byte BYTE_OK = 0x03;
+        public const byte BYTE_SETPOS = 0x04;
         //public const byte BYTE_STATFILE = 0x05;
         //public const byte BYTE_EOF = 0x06;
         //public const byte BYTE_GETPOS = 0x07;
@@ -26,8 +26,15 @@ namespace saviine_server
         public const byte BYTE_HANDLE = 0x0A;
         public const byte BYTE_DUMP = 0x0B;
         public const byte BYTE_PING = 0x0C;
-
+        public const byte BYTE_G_MODE = 0x0D;
+        public const byte BYTE_MODE_D = 0x0E;
+        public const byte BYTE_MODE_I = 0x0F;
+        public const byte BYTE_CLOSE_DUMP = 0x10;
         public const byte BYTE_LOG_STR = 0xFB;
+        public const byte BYTE_FILE = 0xC0;
+        public const byte BYTE_FOLDER = 0xC1;
+        public const byte BYTE_GET_FILES = 0xCC;
+        public const byte BYTE_END = 0xfd;
 
         [Flags]
         public enum FSStatFlag : uint
@@ -75,6 +82,7 @@ namespace saviine_server
 
         const uint BUFFER_SIZE = 64 * 1024;
         static Boolean fastmode = false;
+        static byte op_mode = BYTE_MODE_D;
         static void Main(string[] args)
         {
             if (args.Length > 1)
@@ -86,11 +94,36 @@ namespace saviine_server
             {
                 if (args[0].Equals("fastmode") || args[0].Equals("fast") || args[0].Equals("-fast"))
                 {
-                    fastmode = true;
-                    Console.WriteLine("Now using fastmode");
+                    op_mode = BYTE_MODE_D;
+                    fastmode = true;                   
+                }else if(args[0].Equals("inject")) {
+                    op_mode = BYTE_MODE_I;
                 }
                          
             }
+            if (args.Length == 2)
+            {
+                if (args[0].Equals("dump")) {
+                    op_mode = BYTE_MODE_D;                   
+                    if (args[1].Equals("fastmode") || args[1].Equals("fast") || args[1].Equals("-fast"))
+                    {
+                        fastmode = true;                        
+                    }
+                }else if(args[0].Equals("inject")) {
+                    op_mode = BYTE_MODE_I;
+                }
+            }
+
+            if (op_mode == BYTE_MODE_D)
+            {
+                Console.WriteLine("Dump mode");
+                if(fastmode)Console.WriteLine("Now using fastmode");
+            }
+            else if(op_mode == BYTE_MODE_I)
+            {
+                Console.WriteLine("Injection mode!");
+            }
+
             // Check for cafiine_root and logs folder
             if (!Directory.Exists(root))
             {
@@ -149,6 +182,21 @@ namespace saviine_server
             log.Flush();
             Console.Write(str);
         }
+        public static int countDirectory(string targetDirectory) 
+        {
+                int x = 0;
+            // Process the list of files found in the directory.
+            string [] fileEntries = Directory.GetFiles(targetDirectory);
+            foreach(string fileName in fileEntries)
+                x++;
+
+            // Recurse into subdirectories of this directory.
+            string [] subdirectoryEntries = Directory.GetDirectories(targetDirectory);
+            foreach(string subdirectory in subdirectoryEntries)
+                x++;
+
+            return x;
+        }
 
         static void Handle(object client_obj)
         {
@@ -156,6 +204,8 @@ namespace saviine_server
             FileStream[] files = new FileStream[256];
             Dictionary<int, FileStream> files_request = new Dictionary<int, FileStream>();
             StreamWriter log = null;
+            Dictionary<string, Dictionary<string, byte>> dir_files = new Dictionary<string, Dictionary<string, byte>>();
+
 
             try
             {
@@ -196,23 +246,231 @@ namespace saviine_server
 
                     while (true)
                     {
-                        byte cmd_byte = reader.ReadByte();
+                        //Log(log, "cmd_byte");
+                        byte cmd_byte = reader.ReadByte();                        
                         switch (cmd_byte)
-                        {                           
-                            case BYTE_HANDLE:
+                        {
+                            case BYTE_OPEN:
                                 {
+                                    //Log(log, "BYTE_OPEN");
+                                    bool request_slow = false;
+
+                                    int len_path = reader.ReadInt32();
+                                    int len_mode = reader.ReadInt32();
+                                    string path = reader.ReadString(Encoding.ASCII, len_path - 1);
+                                    if (reader.ReadByte() != 0) throw new InvalidDataException();
+                                    string mode = reader.ReadString(Encoding.ASCII, len_mode - 1);
+                                    if (reader.ReadByte() != 0) throw new InvalidDataException();                                   
+
+                                   
+                                    if (File.Exists(LocalRoot + path))
+                                    {
+                                        int handle = -1;
+                                        for (int i = 1; i < files.Length; i++)
+                                        {
+                                            if (files[i] == null)
+                                            {
+                                                handle = i;
+                                                break;
+                                            }
+                                        }
+                                        if (handle == -1)
+                                        {
+                                            Log(log, name + " Out of file handles!");
+                                            writer.Write(BYTE_SPECIAL);
+                                            writer.Write(-19);
+                                            writer.Write(0);
+                                            break;
+                                        }
+                                        //Log(log, name + " -> fopen(\"" + path + "\", \"" + mode + "\") = " + handle.ToString());
+
+                                        files[handle] = new FileStream(LocalRoot + path, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+                                        writer.Write(BYTE_SPECIAL);
+                                        writer.Write(0);
+                                        writer.Write(handle);
+
+                                    }
+                                    else { writer.Write(BYTE_NORMAL); }
+                                   
+                                    // Log(log, "No request found: " + LocalRoot + path);
+                                  
+                                    
+                                    break;
+                                }
+                            case BYTE_SETPOS:
+                                {
+                                    //Log(log, "BYTE_SETPOS");
+                                    int fd = reader.ReadInt32();
+                                    int pos = reader.ReadInt32();
+                                    if ((fd & 0x0fff00ff) == 0x0fff00ff)
+                                    {
+                                        int handle = (fd >> 8) & 0xff;
+                                        if (files[handle] == null)
+                                        {
+                                            writer.Write(BYTE_SPECIAL);
+                                            writer.Write(-38);
+                                            break;
+                                        }
+                                        FileStream f = files[handle];
+                                        Log(log, "Postion was set to " + pos + "for handle " + handle);
+                                        f.Position = pos;
+                                        writer.Write(BYTE_SPECIAL);
+                                        writer.Write(0);
+                                    }
+                                    else
+                                    {
+                                        writer.Write(BYTE_NORMAL);
+                                    }
+                                    break;
+                                }
+                            case BYTE_GET_FILES: 
+                                {
+                                    int len_path = reader.ReadInt32();
+                                    string path = reader.ReadString(Encoding.ASCII, len_path-1);
+                                    if (reader.ReadByte() != 0) throw new InvalidDataException();
+                                    int x = 0;
+                                    if (path[0] == '/' && path[1] == '/')
+                                    {
+                                        path = path.Substring(2);
+                                    }
+                                    else if (path[0] == '/')
+                                    {
+                                        path = path.Substring(1);
+                                    }
+                                    path = LocalRoot + path;                                    
+                                  
+                                    if(Directory.Exists(path)) {
+                                        x = countDirectory(path);
+                                        if (x > 0)
+                                        {
+                                            Dictionary<string, byte> value;
+                                            if (!dir_files.TryGetValue(path, out value))
+                                            {
+                                                //Console.Write("found no \"" + path + "\" in dic \n");
+                                                value = new Dictionary<string, byte>();
+                                                string[] fileEntries = Directory.GetFiles(path);
+                                                foreach (string fn in fileEntries)
+                                                {
+                                                    string fileName = Path.GetFileName(fn);
+                                                    value.Add(fileName, BYTE_FILE);
+                                                }
+                                                string[] subdirectoryEntries = Directory.GetDirectories(path);
+                                                foreach (string sd in subdirectoryEntries)
+                                                {
+                                                    string subdirectory = Path.GetFileName(sd);
+                                                    value.Add(subdirectory, BYTE_FOLDER);
+                                                }
+                                                dir_files.Add(path, value);
+                                                //Console.Write("added \"" + path + "\" to dic \n");
+                                            }
+                                            else
+                                            {
+                                                //Console.Write("dic for \"" + path + "\" ready \n");
+                                            }
+
+                                            if (value.Count > 0)
+                                            {
+                                                writer.Write(BYTE_OK);
+                                                //Console.Write("sent ok byte \n");
+                                                foreach (var item in value)
+                                                { //Write 
+                                                    writer.Write(item.Value);
+                                                    //Console.Write("type : " + item.Value);
+                                                    writer.Write(item.Key.Length);
+                                                    //Console.Write("length : " + item.Key.Length);
+                                                    writer.Write(item.Key, Encoding.ASCII, true);
+                                                    //Console.Write("filename : " + item.Key);
+                                                    int length = 0;
+                                                    if (item.Value == BYTE_FILE) length = (int)new System.IO.FileInfo(path + "/" + item.Key).Length;
+                                                    writer.Write(length);
+                                                    //Console.Write("filesize : " + length + " \n");
+                                                    value.Remove(item.Key);
+                                                    //Console.Write("removed from list! " + value.Count + " remaining\n");
+                                                    break;
+                                                }
+                                                writer.Write(BYTE_SPECIAL); //
+                                                //Console.Write("file sent, wrote special byte \n");
+                                            }
+                                            else
+                                            {
+                                                writer.Write(BYTE_END); //
+                                                //Console.Write("list was empty return BYTE_END \n");
+                                                dir_files.Remove(path);
+                                                //Console.Write("removed \"" + path + "\" from dic \n");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            //Console.Write(path + "empty \n");
+                                            writer.Write(BYTE_END); //
+                                        }
+                                    }
+                                    else
+                                    {
+                                        //Console.Write(path + " is not found\n");
+                                        writer.Write(BYTE_END); //
+                                    }
+                                    //Console.Write("in break \n");
+                                    break;
+                                }    
+                            case BYTE_READ:
+                                {
+                                    //Log(log,"BYTE_READ");
+                                    int size = reader.ReadInt32();                                   
+                                    int fd = reader.ReadInt32();
+
+                                   
+                                    FileStream f = files[fd];
+
+                                    byte[] buffer = new byte[size];
+                                    int sz = (int)f.Length;                                      
+                                    int rd = 0;
+
+                                    //Log(log, "want size:" + size + " for handle: " + fd);
+
+                                    writer.Write(BYTE_SPECIAL);        
+                                        
+                                    rd = f.Read(buffer, 0, buffer.Length);
+                                    //Log(log,"rd:" + rd);                                  
+                                    writer.Write(rd);   
+                                    writer.Write(buffer, 0, rd);
+
+                                    int offset = (int)f.Position;
+                                    int progress = (int)(((float)offset / (float)sz) * 100);
+                                    string strProgress = progress.ToString().PadLeft(3, ' ');
+                                    string strSize = (sz / 1024).ToString();
+                                    string strCurrent = (offset / 1024).ToString().PadLeft(strSize.Length, ' ');
+                                    Console.Write("\r\t--> {0}% ({1} kB / {2} kB)", strProgress, strCurrent, strSize);
+                                    log.Write("\r\t--> {0}% ({1} kB / {2} kB)", strProgress, strCurrent, strSize);
+                                    //Console.Write("send " + rd );                                           
+                                    if(offset == sz) Console.Write("\n");
+                                    int ret = -5;
+                                    if ((ret =reader.ReadByte()) != BYTE_OK)
+                                    {
+                                        Console.Write("error, got " + ret + " instead of " + BYTE_OK);
+                                        //throw new InvalidDataException();
+                                    }
+                                       
+                                    //Log(log, "break READ");
+
+                                    break;
+                                }
+                            case BYTE_HANDLE:
+                                {                
+                                    //Log(log,"BYTE_HANDLE");
                                     // Read buffer params : fd, path length, path string
                                     int fd = reader.ReadInt32();
                                     int len_path = reader.ReadInt32();
                                     string path = reader.ReadString(Encoding.ASCII, len_path - 1);
                                     if (reader.ReadByte() != 0) throw new InvalidDataException();
-                                    if (!Directory.Exists(LocalRoot + path))
+                                    if (!Directory.Exists(LocalRoot + "dump" + path))
                                     {
-                                        Directory.CreateDirectory(Path.GetDirectoryName(LocalRoot + path));
+                                        Directory.CreateDirectory(Path.GetDirectoryName(LocalRoot + "dump" + path));
                                     }
 
                                     // Add new file for incoming data
-                                    files_request.Add(fd, new FileStream(LocalRoot + path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write));
+                                    files_request.Add(fd, new FileStream(LocalRoot + "dump" +   path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write));
                                     // Send response
                                     if (fastmode) {                                       
                                         writer.Write(BYTE_REQUEST);
@@ -227,7 +485,8 @@ namespace saviine_server
                                     break;
                                 }
                             case BYTE_DUMP:
-                                {
+                                {               
+                                    //Log(log,"BYTE_DUMP");
                                     // Read buffer params : fd, size, file data
                                     int fd = reader.ReadInt32();
                                     int sz = reader.ReadInt32();
@@ -257,25 +516,31 @@ namespace saviine_server
                                 }                            
                             case BYTE_CLOSE:
                                 {
+                                    //Log(log, "BYTE_CLOSE");
                                     int fd = reader.ReadInt32();
-                                    if ((fd & 0x0fff00ff) == 0x0fff00ff)
+                                
+                                   
+                                    if (files[fd] == null)
                                     {
-                                        int handle = (fd >> 8) & 0xff;
-                                        if (files[handle] == null)
-                                        {
-                                            writer.Write(BYTE_SPECIAL);
-                                            writer.Write(-38);
-                                            break;
-                                        }
-                                        Log(log, name + " close(" + handle.ToString() + ")");
-                                        FileStream f = files[handle];
-
                                         writer.Write(BYTE_SPECIAL);
-                                        writer.Write(0);
-                                        f.Close();
-                                        files[handle] = null;
+                                        writer.Write(-38);
+                                        break;
                                     }
-                                    else
+                                    //Log(log, name + " close(" + fd.ToString() + ")");
+                                    FileStream f = files[fd];
+
+                                    writer.Write(BYTE_SPECIAL);
+                                    writer.Write(0);
+                                    f.Close();
+                                    files[fd] = null;
+                                    
+                                   
+                                    break;
+                                }
+                            case BYTE_CLOSE_DUMP:                               
+                                {
+                                    int fd = reader.ReadInt32();
+                                    if ((fd & 0x0fff00ff) != 0x0fff00ff)
                                     {
                                         // Check if it is a file to dump
                                         foreach (var item in files_request)
@@ -291,7 +556,6 @@ namespace saviine_server
                                                 // Close file and remove from request list
                                                 dump_file.Close();
                                                 files_request.Remove(fd);
-
                                                 break;
                                             }
                                         }
@@ -300,18 +564,32 @@ namespace saviine_server
                                         writer.Write(BYTE_NORMAL);
                                     }
                                     break;
-                                }                            
+                                }          
                             case BYTE_PING:
                                 {
+                                    //Log(log, "BYTE_PING");
                                     int val1 = reader.ReadInt32();
                                     int val2 = reader.ReadInt32();
 
                                     Log(log, name + " PING RECEIVED with values : " + val1.ToString() + " - " + val2.ToString());
                                     break;
                                 }
+                            case BYTE_G_MODE:
+                                {
+                                    if (op_mode == BYTE_MODE_D)
+                                    {
+                                        writer.Write(BYTE_MODE_D);
+                                    }
+                                    else if (op_mode == BYTE_MODE_I)
+                                    {
+                                        writer.Write(BYTE_MODE_I);
+                                    }                                    
+                                    break;
+                                }
 
                             case BYTE_LOG_STR:
                                 {
+                                    //Log(log, "BYTE_LOG_STR");
                                     int len_str = reader.ReadInt32();
                                     string str = reader.ReadString(Encoding.ASCII, len_str - 1);
                                     if (reader.ReadByte() != 0) throw new InvalidDataException();
@@ -320,6 +598,7 @@ namespace saviine_server
                                     break;
                                 }
                             default:
+                                Log(log, "xx" + cmd_byte);
                                 throw new InvalidDataException();
                         }
                     }
