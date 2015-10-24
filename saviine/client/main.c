@@ -364,6 +364,36 @@ static void handle_saves(void *pClient, void *pCmd,int error, int client){
 			log_string(bss.logsock, "dumping common savedata", BYTE_LOG_STR);
 			dump_dir(pClient,client,pCmd,"/vol/save/common/",error,60);
 			log_string(bss.logsock, "done!", BYTE_LOG_STR);
+		}else{			
+			log_string(bss.logsock, "common injection", BYTE_LOG_STR);
+			int buf_size = BUFFER_SIZE;
+			char * pBuffer;
+			int failed = 0;
+			do{
+				buf_size -= 0x200;
+				if(buf_size < 0){
+					log_string(bss.logsock, "error on buffer allocation", BYTE_LOG_STR);
+					failed = 1;
+					break;									
+				}
+				pBuffer = (char *)MEMAllocFromDefaultHeapEx(buf_size, 0x40);
+			}while(!pBuffer);
+			if(!failed){
+				int result = injectFiles(pClient,pCmd,"/vol/save/common/","/",pBuffer,buf_size,-1);
+				if(result == -1){
+					log_string(bss.logsock, "injection failed, trying to restore the data", BYTE_LOG_STR);
+					//TODO FSRollbackQuota
+				}else{
+					char logbugger[50];
+					__os_snprintf(logbugger, sizeof(logbugger), "injected %d files, flushing the data now",result);								
+					log_string(bss.logsock, logbugger, BYTE_LOG_STR);		
+					if(FSFlushQuota(pClient,pCmd,"/vol/save/common/",-1) == 0){
+						log_string(bss.logsock, "success", BYTE_LOG_STR);
+					}else{
+						log_string(bss.logsock, "failed", BYTE_LOG_STR);
+					}
+				}
+			}
 		}
 	}
 }
@@ -448,12 +478,18 @@ int injectFiles(void *pClient, void *pCmd, char * path,char * relativepath,char 
 					
 						}else{
 							log_string(bss.logsock, "cafiine_fopen failed", BYTE_LOG_STR);
+							failed = 1;
 						}
 					}
 					
-					if((FSCloseFile (pClient, pCmd, handle, -1)) < 0)
+					if((FSCloseFile (pClient, pCmd, handle, -1)) < 0){
 						log_string(bss.logsock, "FSCloseFile failed", BYTE_LOG_STR);
+						failed = 1;
+					}
 					
+				}else{
+					log_string(bss.logsock, "opening the file failed", BYTE_LOG_STR);
+					failed = 1;
 				}
 				if(!failed) filesinjected++;
 			}else if( type == BYTE_FOLDER){	
