@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Net;
+using System.Windows.Forms;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -83,6 +84,7 @@ namespace saviine_server
         const uint BUFFER_SIZE = 64 * 1024;
         static Boolean fastmode = false;
         static byte op_mode = BYTE_MODE_D;
+         [STAThread]
         static void Main(string[] args)
         {
             if (args.Length > 1)
@@ -198,6 +200,30 @@ namespace saviine_server
             return x;
         }
 
+       
+        static string getRealPath(string path,string title_id){
+            SaveSelectorDialog ofd = new SaveSelectorDialog(path, title_id);
+            try
+            {
+                DialogResult result = ofd.ShowDialog();
+                if (result == System.Windows.Forms.DialogResult.OK)
+                {
+                    Console.WriteLine("selected: " + ofd.NewPath);
+                    return ofd.NewPath;
+                }
+                else
+                {
+                    Console.WriteLine("nothing selected");
+                }
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("No saves found to inject");
+            }
+            return "";
+        }
+       
+
         static void Handle(object client_obj)
         {
             string name = Thread.CurrentThread.Name;
@@ -217,10 +243,12 @@ namespace saviine_server
 
                     uint[] ids = reader.ReadUInt32s(4);
 
-                   
 
 
-                   string LocalRoot = root + "\\" + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + "\\";
+
+                    string LocalRootDump = root + "\\" + "dump" + "\\" + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + "\\";
+                   string LocalRootInject = root + "\\" + "inject" + "\\" + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + "\\";
+
                    if (!ids[0].ToString("X8").Equals("00050000"))
                     {
                         writer.Write(BYTE_NORMAL);
@@ -228,9 +256,13 @@ namespace saviine_server
                     }
                    else
                    {
-                       if (!Directory.Exists(LocalRoot))
+                       if (!Directory.Exists(LocalRootDump))
                        {
-                           Directory.CreateDirectory(LocalRoot);
+                           Directory.CreateDirectory(LocalRootDump);
+                       }
+                       if (!Directory.Exists(LocalRootInject))
+                       {
+                           Directory.CreateDirectory(LocalRootInject);
                        }
                    }
                    // Log connection
@@ -240,7 +272,8 @@ namespace saviine_server
                     // Create log file for current thread
                     log = new StreamWriter(logs_root + "\\" + DateTime.Now.ToString("yyyy-MM-dd") + "-" + name + "-" + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + ".txt", true, Encoding.ASCII, 1024*64);
                     log.WriteLine(name + " Accepted connection from client " + client.Client.RemoteEndPoint.ToString());
-                    log.WriteLine(name + " TitleID: " + ids[0].ToString("X8") + "-" + ids[1].ToString("X8"));                   
+                    string title_id = ids[0].ToString("X8") + "-" + ids[1].ToString("X8");
+                    log.WriteLine(name + " TitleID: " + title_id);                   
 
                     writer.Write(BYTE_SPECIAL);
 
@@ -253,17 +286,19 @@ namespace saviine_server
                             case BYTE_OPEN:
                                 {
                                     //Log(log, "BYTE_OPEN");
-                                    bool request_slow = false;
+                                    Boolean failed = false;
 
                                     int len_path = reader.ReadInt32();
                                     int len_mode = reader.ReadInt32();
                                     string path = reader.ReadString(Encoding.ASCII, len_path - 1);
                                     if (reader.ReadByte() != 0) throw new InvalidDataException();
                                     string mode = reader.ReadString(Encoding.ASCII, len_mode - 1);
-                                    if (reader.ReadByte() != 0) throw new InvalidDataException();                                   
+                                    if (reader.ReadByte() != 0) throw new InvalidDataException();
 
-                                   
-                                    if (File.Exists(LocalRoot + path))
+                                    path = getRealPathCurrent(path, title_id);                                    
+                                    if (path.Length == 0) failed = true;
+
+                                    if (File.Exists(path) && !failed)
                                     {
                                         int handle = -1;
                                         for (int i = 1; i < files.Length; i++)
@@ -284,18 +319,16 @@ namespace saviine_server
                                         }
                                         //Log(log, name + " -> fopen(\"" + path + "\", \"" + mode + "\") = " + handle.ToString());
 
-                                        files[handle] = new FileStream(LocalRoot + path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                                        files[handle] = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
 
                                         writer.Write(BYTE_SPECIAL);
                                         writer.Write(0);
                                         writer.Write(handle);
-
+                                        break;
                                     }
-                                    else { writer.Write(BYTE_NORMAL); }
-                                   
-                                    // Log(log, "No request found: " + LocalRoot + path);
-                                  
-                                    
+                                    //else on error:
+                                    writer.Write(BYTE_NORMAL); 
+
                                     break;
                                 }
                             case BYTE_SETPOS:
@@ -326,21 +359,18 @@ namespace saviine_server
                                 }
                             case BYTE_GET_FILES: 
                                 {
+                                    Boolean failed = false;
                                     int len_path = reader.ReadInt32();
                                     string path = reader.ReadString(Encoding.ASCII, len_path-1);
                                     if (reader.ReadByte() != 0) throw new InvalidDataException();
                                     int x = 0;
-                                    if (path[0] == '/' && path[1] == '/')
+
+                                    currentPersistentID = getPersistentIDFromPath(path);
+                                    path = getRealPath(path, title_id);
+                                    if(path.Length == 0)failed = true;
+
+                                    if (Directory.Exists(path) && !failed)
                                     {
-                                        path = path.Substring(2);
-                                    }
-                                    else if (path[0] == '/')
-                                    {
-                                        path = path.Substring(1);
-                                    }
-                                    path = LocalRoot + path;                                    
-                                  
-                                    if(Directory.Exists(path)) {
                                         x = countDirectory(path);
                                         if (x > 0)
                                         {
@@ -391,26 +421,19 @@ namespace saviine_server
                                                 }
                                                 writer.Write(BYTE_SPECIAL); //
                                                 //Console.Write("file sent, wrote special byte \n");
+                                                break;
                                             }
                                             else
                                             {
-                                                writer.Write(BYTE_END); //
-                                                //Console.Write("list was empty return BYTE_END \n");
+
                                                 dir_files.Remove(path);
                                                 //Console.Write("removed \"" + path + "\" from dic \n");
                                             }
                                         }
-                                        else
-                                        {
-                                            //Console.Write(path + "empty \n");
-                                            writer.Write(BYTE_END); //
-                                        }
                                     }
-                                    else
-                                    {
-                                        //Console.Write(path + " is not found\n");
-                                        writer.Write(BYTE_END); //
-                                    }
+                                    writer.Write(BYTE_END); //
+                                    //Console.Write("list was empty return BYTE_END \n");
+                                       
                                     //Console.Write("in break \n");
                                     break;
                                 }    
@@ -420,7 +443,6 @@ namespace saviine_server
                                     int size = reader.ReadInt32();                                   
                                     int fd = reader.ReadInt32();
 
-                                   
                                     FileStream f = files[fd];
 
                                     byte[] buffer = new byte[size];
@@ -464,13 +486,13 @@ namespace saviine_server
                                     int len_path = reader.ReadInt32();
                                     string path = reader.ReadString(Encoding.ASCII, len_path - 1);
                                     if (reader.ReadByte() != 0) throw new InvalidDataException();
-                                    if (!Directory.Exists(LocalRoot + "dump" + path))
+                                    if (!Directory.Exists(LocalRootDump + path))
                                     {
-                                        Directory.CreateDirectory(Path.GetDirectoryName(LocalRoot + "dump" + path));
+                                        Directory.CreateDirectory(Path.GetDirectoryName(LocalRootDump + path));
                                     }
 
                                     // Add new file for incoming data
-                                    files_request.Add(fd, new FileStream(LocalRoot + "dump" +   path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write));
+                                    files_request.Add(fd, new FileStream(LocalRootDump + path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write));
                                     // Send response
                                     if (fastmode) {                                       
                                         writer.Write(BYTE_REQUEST);
@@ -628,6 +650,44 @@ namespace saviine_server
                     log.Close();
             }
             Console.WriteLine(name + " Exit");
+        }
+
+        private static string getPersistentIDFromPath(string path)
+        {
+            string[] stringSeparators = new string[] { "vol/save/", "vol\\save\\" };
+            string[] result;
+            string resultstr = "";
+
+            result = path.Split(stringSeparators, StringSplitOptions.None);
+            if (result.Length < 2) return "";
+            resultstr = result[result.Length-1];
+            stringSeparators = new string[] { "/", "\\" };
+            result = resultstr.Split(stringSeparators, StringSplitOptions.None);
+            if (result.Length < 1) return "";
+            return result[0];
+        }
+        private static string currentPersistentID = "80000009";
+        private static string getRealPathCurrent(string path, string title_id)
+        {
+            if (currentPersistentID.Length == 0) return "";           
+            string[] stringSeparators = new string[] { "vol/save/", "vol\\save\\" };
+            string[] result;
+            string resultstr = "";
+
+            result = path.Split(stringSeparators, StringSplitOptions.None);
+            if (result.Length < 2) return "";
+            resultstr = result[result.Length-1];
+            stringSeparators = new string[] { "/", "\\" };            
+            result = resultstr.Split(stringSeparators, StringSplitOptions.None);
+            if (result.Length < 2) return "";
+            resultstr = "";
+            for (int i = 1; i < result.Length; i++)
+            {
+                resultstr += "/" + result[i];
+            }
+            string savePath = Program.root + "/" + "inject" + "/" + title_id + "/" + currentPersistentID + resultstr;
+
+            return savePath;
         }
     }
 }

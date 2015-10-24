@@ -4,3 +4,5 @@ G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\bin\saviine_
 G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\obj\x86\Debug\saviine_server.csprojResolveAssemblyReference.cache
 G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\obj\x86\Debug\saviine_server.exe
 G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\obj\x86\Debug\saviine_server.pdb
+G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\obj\x86\Debug\saviine_server.Form1.resources
+G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\obj\x86\Debug\saviine_server.csproj.GenerateResource.Cache
