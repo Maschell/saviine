@@ -24,8 +24,17 @@
 #define BYTE_LOG_STR            0xfb
 #define BYTE_FILE 				0xC0
 #define BYTE_FOLDER             0xC1
-#define BYTE_GET_FILES          0xCC
+#define BYTE_READ_DIR           0xCC
+#define BYTE_INJECTSTART        0x40
+#define BYTE_INJECTEND          0x41
+#define BYTE_DUMPSTART          0x42
+#define BYTE_DUMPEND            0x43
 #define BYTE_END                0xfd
+
+#define MASK_NORMAL          0x8000
+#define MASK_USER          0x0100
+#define MASK_COMMON        0x0200
+#define MASK_COMMON_CLEAN  0x0400
 
 void *memcpy(void *dst, const void *src, int bytes);
 void *memset(void *dst, int val, int bytes);
@@ -47,16 +56,40 @@ extern FSStatus FSAddClient(FSClient *pClient, FSRetFlag errHandling);
 extern void FSInitCmdBlock(FSCmdBlock *pCmd);
 extern FSStatus FSCloseDir(FSClient *pClient, FSCmdBlock *pCmd, int dh, FSRetFlag errHandling);
 extern FSStatus FSOpenFile(FSClient *pClient, FSCmdBlock *pCmd, char *path,char *mode,int *dh,FSRetFlag errHandling);
-				
+extern FSStatus FSOpenDir(FSClient *pClient, FSCmdBlock *pCmd, const char *path, int *dh, FSRetFlag errHandling);
+extern FSStatus FSReadDir(FSClient *pClient, FSCmdBlock *pCmd, int dh, FSDirEntry *dir_entry, FSRetFlag errHandling);
+extern FSStatus FSChangeDir(FSClient *pClient, FSCmdBlock *pCmd, const char *path, FSRetFlag errHandling);
+extern FSStatus FSCloseDir(FSClient *pClient, FSCmdBlock *pCmd, int dh, FSRetFlag errHandling);
+extern FSStatus FSReadFile(FSClient *pClient, FSCmdBlock *pCmd, void *buffer, int size, int count, int fd, int flag, int error);
+extern FSStatus FSSetPosFile(FSClient *pClient, FSCmdBlock *pCmd, int fd, int pos, int error);
+extern FSStatus FSCloseFile (FSClient *pClient, FSCmdBlock *pCmd, int fd, int error);
+extern FSStatus FSMakeDir(FSClient *pClient, FSCmdBlock *pCmd,const char *path, FSRetFlag errHandling);
+extern FSStatus FSRemove(FSClient *pClient, FSCmdBlock *pCmd, const char *path, FSRetFlag errHandling);
+extern FSStatus FSRollbackQuota(FSClient *pClient, FSCmdBlock *pCmd, const char *path, FSRetFlag errHandling);
+extern void OSDynLoad_Acquire (char* rpl, unsigned int *handle);
+extern void OSDynLoad_FindExport (unsigned int handle, int isdata, char *symbol, void *address);
+
 extern void socket_lib_init();
 extern int socket(int domain, int type, int protocol);
 extern int socketclose(int socket);
 extern int connect(int socket, void *addr, int addrlen);
 extern int send(int socket, const void *buffer, int size, int flags);
 extern int recv(int socket, void *buffer, int size, int flags);
+
 extern int __os_snprintf(char* s, int n, const char * format, ...);
-int getFiles(int sock, char * path,char * resultname, int * resulttype,int *filesize);
+
+int saviine_readdir(int sock, char * path,char * resultname, int * resulttype,int *filesize);
 int injectFiles(void *pClient, void *pCmd, char * path,char * relativepath,char *  pBuffer, int buffer_size, int error);
+void doFlushOrRollback(void *pClient,void *pCmd,int result,char *savepath);
+void injectSaveData(void *pClient, void *pCmd,long persistentID,int error);
+void dumpSavaData(void *pClient, void *pCmd,long persistentID,int error);
+long getPesistentID(unsigned char * slotno);
+void init_Save(unsigned char slotNo);
+int doInjectForFile(void * pClient, void * pCmd,int handle,char * filepath,int filesize,void * pBuffer,int buf_size);
+void handle_saves(void *pClient, void *pCmd,int error);
+void hook(void * pClient,void * pCmd, int error);
+int dump_dir(void *pClient, void *pCmd, char *path, void * pBuffer, int size,int error, int handle);
+int remove_files_in_dir(void * pClient,void * pCmd, char * path, int handle);
 
 struct in_addr {
 	unsigned int s_addr;
@@ -102,3 +135,8 @@ int cafiine_fstat(int sock, int *result, int fd, void *ptr);
 int cafiine_feof(int sock, int *result, int fd);
 void cafiine_send_ping(int sock, int val1, int val2);
 void log_string(int sock, const char* str, char flag_byte);
+
+int saviine_end_injection(int sock);
+int saviine_start_injection(int sock, long persistentID,int * mask);
+int saviine_start_dump(int sock, long persistentID,int * mask);
+int saviine_end_dump(int sock);

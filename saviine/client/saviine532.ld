@@ -26,6 +26,7 @@ PROVIDE(FSAAddClient = 0x106546c);
 PROVIDE(FSADelClient = 0x1060aa4);
 PROVIDE(FSAOpenFile = 0x10621f8);
 
+/*FE3C00*/
 /* FS methods */
 PROVIDE(FSInit = 0x10683c8);
 PROVIDE(FSShutdown = 0x1068538);
@@ -45,7 +46,7 @@ PROVIDE(FSGetStatFile = 0x106f5a0);
 PROVIDE(FSIsEof = 0x106f610);
 PROVIDE(FSWriteFile = 0x106F228);
 PROVIDE(FSFlushQuota = 0x106FAC8);
-
+PROVIDE(FSRollbackQuota  = 0x106FC48);
 
 /* */
 PROVIDE(FSGetStat = 0x0106fdc8);

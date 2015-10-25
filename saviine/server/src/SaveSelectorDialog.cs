@@ -12,40 +12,61 @@ namespace saviine_server
 {
     public partial class SaveSelectorDialog : Form
     {
-        private string newPath = "";
+        private long newPersistentID = 0;
+        private int dumpCommon = 0;
 
-        public string NewPath
+        public long NewPersistentID
         {
-            get { return newPath; }
+            get { return newPersistentID; }
         }
-        private static string savePath = Program.root + "/" + "inject";
-        public SaveSelectorDialog(string path,string title_id)
+        public int DumpCommon
+        {
+            get { return dumpCommon; }
+        }
+        private static string savePath; 
+        public SaveSelectorDialog(string title_id,long persistentID)
         {
             InitializeComponent();
-            string[] stringSeparators = new string[] { "vol/save/", "vol\\save\\" };
-            string[] result;
-
-            result = path.Split(stringSeparators, StringSplitOptions.None);
-            if (result.Length < 2) this.Close();
-            string resultPath = result[result.Length-2];
-
-            Console.WriteLine(title_id);
+            comBoxCommon.SelectedIndex = 0;
+            savePath = Program.root + "/" + Program.injectfolder;;
+            this.lbl_message.Text = "Got an injection request for " + title_id;
             savePath += "/" + title_id;
+            string[] subdirectoryEntries;
             if (Directory.Exists(savePath))
             {
                 // Recurse into subdirectories of this directory.
-                string[] subdirectoryEntries = Directory.GetDirectories(savePath);
+                subdirectoryEntries = Directory.GetDirectories(savePath);
+                this.comBoxIDList.Items.Add("---none---");
+                comBoxIDList.SelectedIndex = 0;
                 foreach (string subdirectory in subdirectoryEntries)
                 {
-                    this.listBox_saves.Items.Add(Path.GetFileName(subdirectory));
+                    string filename = Path.GetFileName(subdirectory);
+                    long id;
+                    try{
+                        id = Convert.ToUInt32(filename, 16);
+                    }catch (Exception){
+                        id = 0;
+                    }
+                    
+                    
+                    if (id >= 0x80000000 && id <= 0x81000000)
+                    {
+
+                        this.comBoxIDList.Items.Add(filename);
+                    }                   
+                }
+                if (comBoxIDList.Items.Count == 1)
+                {
+                    this.comBoxIDList.Enabled = false;
+
+                }
+                if (!Directory.Exists(savePath + "/" + Program.common))
+                {
+                    comBoxCommon.Enabled = false;
                 }
             }
-            else
-            {
-                Console.WriteLine("dir not found! " + savePath);
-                this.Close();
-            }          
-           
+
+
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -55,11 +76,33 @@ namespace saviine_server
 
         private void btn_ok_Click(object sender, EventArgs e)
         {
-            newPath = savePath + "/" + this.listBox_saves.SelectedItem.ToString();
+            long id;
+            try
+            {
+                id = Convert.ToUInt32(this.comBoxIDList.SelectedItem.ToString(), 16);
+            }
+            catch (Exception)
+            {
+                id = 0;
+            }
+            newPersistentID = id;
+            dumpCommon = comBoxCommon.SelectedIndex;
+            Console.WriteLine(dumpCommon);
+            
         }
         private void btn_cancel_Click(object sender, EventArgs e)
         {
             
+        }
+
+        private void Inj_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+
         }
         
       

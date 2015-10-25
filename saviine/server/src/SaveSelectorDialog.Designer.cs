@@ -30,15 +30,19 @@
         {
             this.btn_ok = new System.Windows.Forms.Button();
             this.btn_cancel = new System.Windows.Forms.Button();
-            this.listBox_saves = new System.Windows.Forms.ListBox();
+            this.lbl_message = new System.Windows.Forms.Label();
+            this.comBoxIDList = new System.Windows.Forms.ComboBox();
+            this.label1 = new System.Windows.Forms.Label();
+            this.Inj = new System.Windows.Forms.Label();
+            this.comBoxCommon = new System.Windows.Forms.ComboBox();
             this.SuspendLayout();
             // 
             // btn_ok
             // 
             this.btn_ok.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.btn_ok.Location = new System.Drawing.Point(167, 266);
+            this.btn_ok.Location = new System.Drawing.Point(62, 133);
             this.btn_ok.Name = "btn_ok";
-            this.btn_ok.Size = new System.Drawing.Size(105, 33);
+            this.btn_ok.Size = new System.Drawing.Size(81, 21);
             this.btn_ok.TabIndex = 0;
             this.btn_ok.Text = "OK";
             this.btn_ok.UseVisualStyleBackColor = true;
@@ -47,33 +51,80 @@
             // btn_cancel
             // 
             this.btn_cancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btn_cancel.Location = new System.Drawing.Point(332, 269);
+            this.btn_cancel.Location = new System.Drawing.Point(198, 133);
             this.btn_cancel.Name = "btn_cancel";
-            this.btn_cancel.Size = new System.Drawing.Size(130, 29);
+            this.btn_cancel.Size = new System.Drawing.Size(81, 21);
             this.btn_cancel.TabIndex = 1;
             this.btn_cancel.Text = "Cancel";
             this.btn_cancel.UseVisualStyleBackColor = true;
             // 
-            // listBox_saves
+            // lbl_message
             // 
-            this.listBox_saves.FormattingEnabled = true;
-            this.listBox_saves.Location = new System.Drawing.Point(54, 48);
-            this.listBox_saves.Name = "listBox_saves";
-            this.listBox_saves.Size = new System.Drawing.Size(408, 160);
-            this.listBox_saves.TabIndex = 2;
+            this.lbl_message.AutoSize = true;
+            this.lbl_message.Location = new System.Drawing.Point(12, 10);
+            this.lbl_message.Name = "lbl_message";
+            this.lbl_message.Size = new System.Drawing.Size(236, 13);
+            this.lbl_message.TabIndex = 3;
+            this.lbl_message.Text = "Got an injection request for 00050000-10157F00";
             // 
-            // Form1
+            // comBoxIDList
+            // 
+            this.comBoxIDList.FormattingEnabled = true;
+            this.comBoxIDList.Location = new System.Drawing.Point(186, 48);
+            this.comBoxIDList.Name = "comBoxIDList";
+            this.comBoxIDList.Size = new System.Drawing.Size(93, 21);
+            this.comBoxIDList.TabIndex = 4;
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(12, 51);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(81, 13);
+            this.label1.TabIndex = 5;
+            this.label1.Text = "Select userdata";
+            this.label1.Click += new System.EventHandler(this.label1_Click);
+            // 
+            // Inj
+            // 
+            this.Inj.AutoSize = true;
+            this.Inj.Location = new System.Drawing.Point(12, 86);
+            this.Inj.Name = "Inj";
+            this.Inj.Size = new System.Drawing.Size(108, 13);
+            this.Inj.TabIndex = 7;
+            this.Inj.Text = "Inject common save?";
+            this.Inj.Click += new System.EventHandler(this.Inj_Click);
+            // 
+            // comBoxCommon
+            // 
+            this.comBoxCommon.FormattingEnabled = true;
+            this.comBoxCommon.Items.AddRange(new object[] {
+            "no",
+            "inject",
+            "clean and inject (deleting existing common)"});
+            this.comBoxCommon.Location = new System.Drawing.Point(126, 83);
+            this.comBoxCommon.Name = "comBoxCommon";
+            this.comBoxCommon.Size = new System.Drawing.Size(153, 21);
+            this.comBoxCommon.TabIndex = 8;
+            // 
+            // SaveSelectorDialog
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(499, 314);
-            this.Controls.Add(this.listBox_saves);
+            this.ClientSize = new System.Drawing.Size(310, 166);
+            this.Controls.Add(this.comBoxCommon);
+            this.Controls.Add(this.Inj);
+            this.Controls.Add(this.label1);
+            this.Controls.Add(this.comBoxIDList);
+            this.Controls.Add(this.lbl_message);
             this.Controls.Add(this.btn_cancel);
             this.Controls.Add(this.btn_ok);
-            this.Name = "Form1";
-            this.Text = "Form1";
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            this.Name = "SaveSelectorDialog";
+            this.Text = "Injection request";
             this.Load += new System.EventHandler(this.Form1_Load);
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
@@ -81,6 +132,10 @@
 
         private System.Windows.Forms.Button btn_ok;
         private System.Windows.Forms.Button btn_cancel;
-        private System.Windows.Forms.ListBox listBox_saves;
+        private System.Windows.Forms.Label lbl_message;
+        private System.Windows.Forms.ComboBox comBoxIDList;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.Label Inj;
+        private System.Windows.Forms.ComboBox comBoxCommon;
     }
 }

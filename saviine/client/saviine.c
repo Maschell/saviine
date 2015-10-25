@@ -72,9 +72,8 @@ int getMode(int sock,int * result)
 {
     while (bss.lock) GX2WaitForVsync();
     bss.lock = 1;
-	
-    CHECK_ERROR(sock == -1);
 	int ret = 0;
+    CHECK_ERROR(sock == -1);
     
     // create and send buffer with : [cmd id][fd][size][buffer data ...]
     {
@@ -145,6 +144,8 @@ int cafiine_send_handle(int sock, int client, const char *path, int handle)
 
 		 // wait reply
         ret = recvbyte(sock);
+		CHECK_ERROR(ret < 0);
+		CHECK_ERROR(ret == BYTE_SPECIAL);
 		if(ret == BYTE_REQUEST){
 			ret = 1;
 		}else{
@@ -152,6 +153,7 @@ int cafiine_send_handle(int sock, int client, const char *path, int handle)
 		}
         // wait reply
         int special_ret = recvbyte(sock);
+		CHECK_ERROR(special_ret < 0);
         CHECK_ERROR(special_ret != BYTE_SPECIAL);
 		bss.lock = 0;
 		return ret;
@@ -164,10 +166,9 @@ error:
 int cafiine_fopen(int sock, int *result, const char *path, const char *mode, int *handle) {
     while (bss.lock) GX2WaitForVsync();
     bss.lock = 1;
-
+	int final_result = -1;
     CHECK_ERROR(sock == -1);
 
-    int final_ret = 0;
     int ret;
     int len_path = 0;
     while (path[len_path++]);
@@ -186,23 +187,23 @@ int cafiine_fopen(int sock, int *result, const char *path, const char *mode, int
             buffer[9 + len_path + ret] = mode[ret];
 
         ret = sendwait(sock, buffer, 1 + 8 + len_path + len_mode);
-    }
-    CHECK_ERROR(ret < 0);
-    ret = recvbyte(sock);
-    CHECK_ERROR(ret < 0);
-    CHECK_ERROR(ret == BYTE_NORMAL);
+		CHECK_ERROR(ret < 0);
+		
+		 ret = recvbyte(sock);
+		CHECK_ERROR(ret < 0);
+		CHECK_ERROR(ret == BYTE_NORMAL);
 
-    ret = recvwait(sock, result, 4);
-    CHECK_ERROR(ret < 0);
-    ret = recvwait(sock, handle, 4);
-    CHECK_ERROR(ret < 0);
+		ret = recvwait(sock, result, 4);
+		CHECK_ERROR(ret < 0);
+		ret = recvwait(sock, handle, 4);
+		CHECK_ERROR(ret < 0);
+    }   
+	final_result = 0;
+	
 
-quit:
-    bss.lock = 0;
-    return final_ret;
 error:
     bss.lock = 0;
-    return -1;
+    return final_result;
 }
 
 void cafiine_send_file(int sock, char *file, int size, int fd) {
@@ -225,7 +226,7 @@ void cafiine_send_file(int sock, char *file, int size, int fd) {
 
         // send buffer, wait for reply
         ret = sendwait(sock, buffer, 1 + 4 + 4 + size);
-
+		CHECK_ERROR(ret < 0);
         // wait reply
         ret = recvbyte(sock);
         CHECK_ERROR(ret != BYTE_SPECIAL);
@@ -246,16 +247,18 @@ int cafiine_fread(int sock, int *result, void *ptr, int size, int fd) {
     buffer[0] = BYTE_READ;
     *(int *)(buffer + 1) = size;   
     *(int *)(buffer + 5) = fd;
-    ret = sendwait(sock, buffer, 1 + 8);    
+    ret = sendwait(sock, buffer, 1 + 8); 
+	CHECK_ERROR(ret < 0);   
     ret = recvbyte(sock);    
     CHECK_ERROR(ret == BYTE_NORMAL);
     int sz;
     ret = recvwait(sock, &sz, 4);
-	
+	CHECK_ERROR(ret < 0);
     ret = recvwaitlen(sock, ptr, sz);
 	*result = sz - ret; 
     ret = sendbyte(sock, BYTE_OK);
-    
+    CHECK_ERROR(ret < 0);
+	
     bss.lock = 0;
     return 0;
 error:
@@ -289,11 +292,115 @@ error:
     return -1;
 }
 
-int getFiles(int sock, char * path,char * resultname, int * resulttype, int * filesize){
+int saviine_start_injection(int sock, long persistentID,int * mask){
 	while (bss.lock) GX2WaitForVsync();
     bss.lock = 1;
-    CHECK_ERROR(sock == -1);
 	int result = 0;
+    CHECK_ERROR(sock == -1);	
+    int ret;
+	{
+        char buffer[1+4];
+		
+        buffer[0] = BYTE_INJECTSTART;
+		*(long *)(buffer + 1) = persistentID;
+		ret = sendwait(sock, buffer, 1 + 4);
+		CHECK_ERROR(ret < 0);
+	
+		ret = recvbyte(sock);
+		CHECK_ERROR(ret < 0);
+        CHECK_ERROR(ret != BYTE_SPECIAL);
+		
+		ret = recvwait(sock, mask, 4);			
+		CHECK_ERROR(ret < 0);
+		CHECK_ERROR((*mask & MASK_NORMAL) != MASK_NORMAL);
+		
+		ret = recvbyte(sock);
+		CHECK_ERROR(ret < 0);
+		CHECK_ERROR(ret != BYTE_SPECIAL);
+		result = 1;		
+	}
+error:
+	bss.lock = 0;
+    return result;
+}
+
+int saviine_end_injection(int sock){
+	while (bss.lock) GX2WaitForVsync();
+    bss.lock = 1;
+	int result = 0;
+    CHECK_ERROR(sock == -1);	
+    int ret;
+	{
+        ret = sendbyte(sock, BYTE_INJECTEND);
+		CHECK_ERROR(ret < 0);
+		
+		ret = recvbyte(sock);
+		CHECK_ERROR(ret < 0);
+		CHECK_ERROR(ret != BYTE_OK);
+		result = 1;		
+	}
+error:
+	bss.lock = 0;
+    return result;
+}
+
+int saviine_start_dump(int sock, long persistentID,int * mask){
+	while (bss.lock) GX2WaitForVsync();
+    bss.lock = 1;
+	int result = 0;
+    CHECK_ERROR(sock == -1);	
+    int ret;
+	{
+        char buffer[1+4];
+		
+        buffer[0] = BYTE_DUMPSTART;
+		*(long *)(buffer + 1) = persistentID;
+		ret = sendwait(sock, buffer, 1 + 4);
+		CHECK_ERROR(ret < 0);
+	
+		ret = recvbyte(sock);
+		CHECK_ERROR(ret < 0);
+        CHECK_ERROR(ret != BYTE_SPECIAL);
+		
+		ret = recvwait(sock, mask, 4);			
+		CHECK_ERROR(ret < 0);
+		CHECK_ERROR((*mask & MASK_NORMAL) != MASK_NORMAL);
+		
+		ret = recvbyte(sock);
+		CHECK_ERROR(ret < 0);
+		CHECK_ERROR(ret != BYTE_SPECIAL);
+		result = 1;		
+	}
+error:
+	bss.lock = 0;
+    return result;
+}
+
+int saviine_end_dump(int sock){
+	while (bss.lock) GX2WaitForVsync();
+    bss.lock = 1;
+	int result = 0;
+    CHECK_ERROR(sock == -1);	
+    int ret;
+	{
+        ret = sendbyte(sock, BYTE_DUMPEND);
+		CHECK_ERROR(ret < 0);
+		
+		ret = recvbyte(sock);
+		CHECK_ERROR(ret < 0);
+		CHECK_ERROR(ret != BYTE_OK);
+		result = 1;		
+	}
+error:
+	bss.lock = 0;
+    return result;
+}
+
+int saviine_readdir(int sock, char * path,char * resultname, int * resulttype, int * filesize){
+	while (bss.lock) GX2WaitForVsync();
+    bss.lock = 1;
+	int result = 0;
+    CHECK_ERROR(sock == -1);	
     int ret;
     // create and send buffer with : [cmd id][len_path][path][filesize]
     {
@@ -301,13 +408,14 @@ int getFiles(int sock, char * path,char * resultname, int * resulttype, int * fi
         while (path[size++]);
         char buffer[1+4+size];
 		
-        buffer[0] = BYTE_GET_FILES;
+        buffer[0] = BYTE_READ_DIR;
 		*(int *)(buffer + 1) = size;
 		for (ret = 0; ret < size; ret++)
             buffer[5 + ret] = path[ret];
 		
         // send buffer, wait for reply
 		ret = sendwait(sock, buffer, 1+4+size);
+		CHECK_ERROR(ret < 0);
 		
         // wait reply
         ret = recvbyte(sock);

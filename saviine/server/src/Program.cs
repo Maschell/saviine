@@ -34,8 +34,23 @@ namespace saviine_server
         public const byte BYTE_LOG_STR = 0xFB;
         public const byte BYTE_FILE = 0xC0;
         public const byte BYTE_FOLDER = 0xC1;
-        public const byte BYTE_GET_FILES = 0xCC;
+        public const byte BYTE_READ_DIR = 0xCC;
+        public const byte BYTE_INJECTSTART = 0x40;
+        public const byte BYTE_INJECTEND = 0x41;
+        public const byte BYTE_DUMPSTART = 0x42;
+        public const byte BYTE_DUMPEND = 0x43;
         public const byte BYTE_END = 0xfd;
+
+
+        public const int MASK_NORMAL = 0x8000;
+        public const int MASK_USER = 0x0100;
+        public const int MASK_COMMON = 0x0200;
+        public const int MASK_COMMON_CLEAN = 0x0400;
+        
+
+        private static long currentPersistentID = 0x0;
+        private static long COMMON_PERSISTENTID = 0x1;
+        
 
         [Flags]
         public enum FSStatFlag : uint
@@ -80,13 +95,16 @@ namespace saviine_server
 
         public static string root = "saviine_root";
         public static string logs_root = "logs";
+        public static string injectfolder = "inject";
+        public static string dumpfolder = "dump";
+        public static string common = "common";
 
         const uint BUFFER_SIZE = 64 * 1024;
         static Boolean fastmode = false;
         static byte op_mode = BYTE_MODE_D;
          [STAThread]
         static void Main(string[] args)
-        {
+        {          
             if (args.Length > 1)
             {
                 Console.Error.WriteLine("Usage: saviine_server [fastmode|fast]");
@@ -118,6 +136,7 @@ namespace saviine_server
 
             if (op_mode == BYTE_MODE_D)
             {
+                currentPersistentID = 0x01;
                 Console.WriteLine("Dump mode");
                 if(fastmode)Console.WriteLine("Now using fastmode");
             }
@@ -199,30 +218,7 @@ namespace saviine_server
 
             return x;
         }
-
-       
-        static string getRealPath(string path,string title_id){
-            SaveSelectorDialog ofd = new SaveSelectorDialog(path, title_id);
-            try
-            {
-                DialogResult result = ofd.ShowDialog();
-                if (result == System.Windows.Forms.DialogResult.OK)
-                {
-                    Console.WriteLine("selected: " + ofd.NewPath);
-                    return ofd.NewPath;
-                }
-                else
-                {
-                    Console.WriteLine("nothing selected");
-                }
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine("No saves found to inject");
-            }
-            return "";
-        }
-       
+                     
 
         static void Handle(object client_obj)
         {
@@ -295,11 +291,18 @@ namespace saviine_server
                                     string mode = reader.ReadString(Encoding.ASCII, len_mode - 1);
                                     if (reader.ReadByte() != 0) throw new InvalidDataException();
 
-                                    path = getRealPathCurrent(path, title_id);                                    
+                                   
+                                    //Log(log, "old path" + path);
+                                    //Log(log, "currentID: " + currentPersistentID);
+                                    if (op_mode == BYTE_MODE_I)
+                                        path = getRealPathCurrentInject(path, title_id);
+                                  
+                                    //Log(log, "new path" + path);
                                     if (path.Length == 0) failed = true;
 
                                     if (File.Exists(path) && !failed)
                                     {
+                                        //Log(log, "path exits");
                                         int handle = -1;
                                         for (int i = 1; i < files.Length; i++)
                                         {
@@ -326,6 +329,7 @@ namespace saviine_server
                                         writer.Write(handle);
                                         break;
                                     }
+                                    //Log(log, "error fopen");
                                     //else on error:
                                     writer.Write(BYTE_NORMAL); 
 
@@ -357,18 +361,158 @@ namespace saviine_server
                                     }
                                     break;
                                 }
-                            case BYTE_GET_FILES: 
+                            case BYTE_INJECTSTART:
                                 {
+                                    long wiiUpersistentID = (long)reader.ReadUInt32();
+                                    int dumpCommon = 0;
+                                    Boolean injectioncanceled = false;
+                                    SaveSelectorDialog ofd = new SaveSelectorDialog(title_id, wiiUpersistentID);
+                                    try
+                                    {
+                                        DialogResult result = ofd.ShowDialog();
+                                        if (result == System.Windows.Forms.DialogResult.OK)
+                                        {
+                                            currentPersistentID = ofd.NewPersistentID;
+                                            dumpCommon = ofd.DumpCommon;
+                                            //Console.WriteLine("Injecting " + currentPersistentID.ToString() + " into " + wiiUpersistentID.ToString() + " for title id " + title_id);
+                                            if (dumpCommon == 1) Console.WriteLine("clean and inject common folder");
+                                            if (dumpCommon == 2) Console.WriteLine("inject common folder");
+                                            if (dumpCommon > 0 && currentPersistentID == 0) currentPersistentID = COMMON_PERSISTENTID;
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine("Injection canceled");
+                                            injectioncanceled = true;
+                                        }
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Console.WriteLine("Injection canceled");
+                                        injectioncanceled = true;
+                                    }
+                                    if (injectioncanceled)
+                                    {
+                                        writer.Write(BYTE_NORMAL);
+                                    }
+                                    else
+                                    {
+                                        writer.Write(BYTE_SPECIAL);
+                                    }
+                                    int dumpmask = MASK_NORMAL;
+                                    if (currentPersistentID != 0 && currentPersistentID != COMMON_PERSISTENTID)
+                                        dumpmask |= MASK_USER;
+
+                                    if (dumpCommon >= 1) {
+                                        dumpmask |= MASK_COMMON;
+                                      if(dumpCommon == 2)
+                                        dumpmask |= MASK_COMMON_CLEAN;
+                                    }
+                                    writer.Write(dumpmask);
+                                    writer.Write(BYTE_SPECIAL);
+
+                                    break;
+                                }
+                            case BYTE_INJECTEND:
+                                {
+                                    currentPersistentID = 0;
+                                    //close all opened files
+                                    for (int i = 1; i < files.Length; i++)
+                                    {
+                                        if (files[i] != null)
+                                        {
+                                            files[i].Close();
+                                            files[i] = null;
+                                        }
+                                    }
+                                    writer.Write(BYTE_OK);
+                                    Console.WriteLine("InjectionEND");
+                                        
+                                    break;
+                                }
+                            case BYTE_DUMPSTART:
+                                {
+                                    long wiiUpersistentID = (long)reader.ReadUInt32();
+                                    int dumpCommon = 0;
+                                    currentPersistentID = wiiUpersistentID;
+                                    dumpCommon = 1;
+                                    /*
+                                    Boolean injectioncanceled = false;
+                                    SaveSelectorDialog ofd = new SaveSelectorDialog(title_id, wiiUpersistentID);
+                                    try
+                                    {
+                                        DialogResult result = ofd.ShowDialog();
+                                        if (result == System.Windows.Forms.DialogResult.OK)
+                                        {
+                                            currentPersistentID = ofd.NewPersistentID;
+                                            dumpCommon = ofd.DumpCommon;
+                                            //Console.WriteLine("Injecting " + currentPersistentID.ToString() + " into " + wiiUpersistentID.ToString() + " for title id " + title_id);
+                                            if (dumpCommon == 1) Console.WriteLine("clean and inject common folder");
+                                            if (dumpCommon == 2) Console.WriteLine("inject common folder");
+                                            if (dumpCommon > 0 && currentPersistentID == 0) currentPersistentID = COMMON_PERSISTENTID;
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine("dump canceled");
+                                            injectioncanceled = true;
+                                        }
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Console.WriteLine("dump canceled");
+                                        injectioncanceled = true;
+                                    }
+                                    if (injectioncanceled)
+                                    {
+                                        writer.Write(BYTE_NORMAL);
+                                    }
+                                    else
+                                    {
+                                        writer.Write(BYTE_SPECIAL);
+                                    }*/
+                                    writer.Write(BYTE_SPECIAL);
+                                    int dumpmask = MASK_NORMAL;
+                                    if (currentPersistentID != 0 && currentPersistentID != COMMON_PERSISTENTID)
+                                        dumpmask |= MASK_USER;
+
+                                    if (dumpCommon == 1)
+                                    {
+                                        dumpmask |= MASK_COMMON;                                        
+                                    }
+                                    writer.Write(dumpmask);
+                                    writer.Write(BYTE_SPECIAL);
+
+                                    break;
+                                }
+                            case BYTE_DUMPEND:
+                                {
+                                    currentPersistentID = 0;
+                                    //close all opened files
+                                    for (int i = 1; i < files.Length; i++)
+                                    {
+                                        if (files[i] != null)
+                                        {
+                                            files[i].Close();
+                                            files[i] = null;
+                                        }
+                                    }
+                                    writer.Write(BYTE_OK);
+                                    Console.WriteLine("dumpEND");
+
+                                    break;
+                                }
+                            case BYTE_READ_DIR: 
+                                {                                    
                                     Boolean failed = false;
                                     int len_path = reader.ReadInt32();
                                     string path = reader.ReadString(Encoding.ASCII, len_path-1);
                                     if (reader.ReadByte() != 0) throw new InvalidDataException();
                                     int x = 0;
-
-                                    currentPersistentID = getPersistentIDFromPath(path);
-                                    path = getRealPath(path, title_id);
+                                    //Console.WriteLine("old" + path);
+                                    if(op_mode == BYTE_MODE_I)
+                                        path = getRealPathCurrentInject(path, title_id);
+                                    //Console.WriteLine("new" + path);
                                     if(path.Length == 0)failed = true;
-
+                                  
                                     if (Directory.Exists(path) && !failed)
                                     {
                                         x = countDirectory(path);
@@ -433,7 +577,7 @@ namespace saviine_server
                                     }
                                     writer.Write(BYTE_END); //
                                     //Console.Write("list was empty return BYTE_END \n");
-                                       
+
                                     //Console.Write("in break \n");
                                     break;
                                 }    
@@ -464,9 +608,13 @@ namespace saviine_server
                                     string strSize = (sz / 1024).ToString();
                                     string strCurrent = (offset / 1024).ToString().PadLeft(strSize.Length, ' ');
                                     Console.Write("\r\t--> {0}% ({1} kB / {2} kB)", strProgress, strCurrent, strSize);
-                                    log.Write("\r\t--> {0}% ({1} kB / {2} kB)", strProgress, strCurrent, strSize);
+                                    
                                     //Console.Write("send " + rd );                                           
-                                    if(offset == sz) Console.Write("\n");
+                                    if (offset == sz)
+                                    {
+                                        Console.Write("\n");
+                                        log.Write("\r\t--> {0}% ({1} kB / {2} kB)\n", strProgress, strCurrent, strSize);
+                                    }
                                     int ret = -5;
                                     if ((ret =reader.ReadByte()) != BYTE_OK)
                                     {
@@ -486,13 +634,24 @@ namespace saviine_server
                                     int len_path = reader.ReadInt32();
                                     string path = reader.ReadString(Encoding.ASCII, len_path - 1);
                                     if (reader.ReadByte() != 0) throw new InvalidDataException();
-                                    if (!Directory.Exists(LocalRootDump + path))
+                                    //Console.WriteLine("old " + path);
+                                    if (op_mode == BYTE_MODE_D)
+                                        path = getRealPathCurrentDump(path, title_id);
+                                    //Console.WriteLine("new " + path);
+
+                                    if (path.Length == 0)
                                     {
-                                        Directory.CreateDirectory(Path.GetDirectoryName(LocalRootDump + path));
+                                        writer.Write(BYTE_SPECIAL);
+                                        break;
+                                    }
+
+                                    if (!Directory.Exists(path))
+                                    {
+                                        Directory.CreateDirectory(Path.GetDirectoryName(path));
                                     }
 
                                     // Add new file for incoming data
-                                    files_request.Add(fd, new FileStream(LocalRootDump + path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write));
+                                    files_request.Add(fd, new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write));
                                     // Send response
                                     if (fastmode) {                                       
                                         writer.Write(BYTE_REQUEST);
@@ -652,40 +811,43 @@ namespace saviine_server
             Console.WriteLine(name + " Exit");
         }
 
-        private static string getPersistentIDFromPath(string path)
+        private static string getRealPathCurrentInject(string path, string title_id)
         {
+            return getRealPathCurrent(injectfolder, path, title_id);
+        }
+        private static string getRealPathCurrentDump(string path, string title_id)
+        {
+            return getRealPathCurrent(dumpfolder, path, title_id);
+        }
+
+        private static string getRealPathCurrent(string prefix, string path, string title_id)
+        {
+            string savePath = Program.root + "/" + prefix + "/" + title_id;
+            if (currentPersistentID == 0) return "";           
             string[] stringSeparators = new string[] { "vol/save/", "vol\\save\\" };
             string[] result;
-            string resultstr = "";
-
+            string resultstr = "";           
             result = path.Split(stringSeparators, StringSplitOptions.None);
-            if (result.Length < 2) return "";
-            resultstr = result[result.Length-1];
+            if (result.Length < 2) return "";            
+            resultstr = result[result.Length-1];           
             stringSeparators = new string[] { "/", "\\" };
             result = resultstr.Split(stringSeparators, StringSplitOptions.None);
-            if (result.Length < 1) return "";
-            return result[0];
-        }
-        private static string currentPersistentID = "80000009";
-        private static string getRealPathCurrent(string path, string title_id)
-        {
-            if (currentPersistentID.Length == 0) return "";           
-            string[] stringSeparators = new string[] { "vol/save/", "vol\\save\\" };
-            string[] result;
-            string resultstr = "";
-
-            result = path.Split(stringSeparators, StringSplitOptions.None);
-            if (result.Length < 2) return "";
-            resultstr = result[result.Length-1];
-            stringSeparators = new string[] { "/", "\\" };            
-            result = resultstr.Split(stringSeparators, StringSplitOptions.None);
-            if (result.Length < 2) return "";
+            if (result.Length < 2)
+            {
+                if (result[0] != "common") return savePath  + "/" + String.Format("{0:X}", currentPersistentID);
+                return savePath + "/" + "common";
+            }
             resultstr = "";
+            if (result[0] != "common")
+                savePath += "/" + String.Format("{0:X}", currentPersistentID);
+            else
+                savePath += "/" + "common";
             for (int i = 1; i < result.Length; i++)
             {
                 resultstr += "/" + result[i];
             }
-            string savePath = Program.root + "/" + "inject" + "/" + title_id + "/" + currentPersistentID + resultstr;
+           
+            savePath += resultstr;
 
             return savePath;
         }
