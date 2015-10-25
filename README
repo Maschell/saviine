@@ -20,7 +20,7 @@ Note :
 - make sure that your game version and the game version from injecting save are the same
 - e.g. injecting PAL saves into NTSC one is untested!
 
-NOTE FOR SUPER SMASH BROS FOR WIIU the common data is too big to inject at one time. injecting the common folder will fail. try to split the files up and use the inject without clean to inject the data without the texture folder. MAKE SURE TO MAKE A BACKUP! This may also applies to other games
+NOTE FOR SUPER SMASH BROS FOR WIIU the common data is too big to inject at one time. The data will may be flushed at some time. automaticly restoring the data after flushing is not possible. MAKE SURE TO MAKE A BACKUP! This may also applies to other gaames
 
 The WiiU has mutiple save folder. One folder for infos that are shared with all accounts (common) and a folder for each account (e.g 8000000a)
 At the moment it is only possible to dump the common folder your own folder. Not all games use the common folder.

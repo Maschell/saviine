@@ -474,8 +474,8 @@ int doInjectForFile(void * pClient, void * pCmd,int handle,char * filepath,int f
 						if(DEBUG_LOG)__os_snprintf(logbuffer, sizeof(logbuffer), "wrote %d",retsize);					
 						if(DEBUG_LOG) log_string(bss.logsock, logbuffer, BYTE_LOG_STR);
 					}else{
-						if(fwrite == FS_STATUS_JOURNAL_FULL){
-							log_string(bss.logsock, "journal is full, flushing it now.", BYTE_LOG_STR);
+						if(fwrite == FS_STATUS_JOURNAL_FULL || fwrite == FS_STATUS_STORAGE_FULL){
+							log_string(bss.logsock, "journal or storage is full, flushing it now.", BYTE_LOG_STR);
 							if(FSFlushQuota(pClient,pCmd,basepath,FS_RET_ALL_ERROR) == FS_STATUS_OK){
 								log_string(bss.logsock, "success", BYTE_LOG_STR);
 								failed = 2;
