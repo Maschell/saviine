@@ -1,8 +1,8 @@
-Saviine 0.3
+Saviine 1.0 (25.10.2015)
 
 Compatible with 5.3.2 fw
 
-dumps WiiU Saves and is a mod of cafiine. Thanks to everyone who worked on cafiine!
+dumps and injects (experimental) WiiU Saves(Thanks to everyone who worked on cafiine! code is based on cafiine)
 
 Compilation :
 - in order to compile saviine you need to put the saviine folder in your libwiiu project
@@ -13,22 +13,52 @@ Pre-made version :
 - in www/saviine, it is already compiled, just put the folder in your server
 
 Note :
+- make sure you already have a save of the game on you console before trying to dump/inject them
 - you can change the server ip directly in the application.
 - start the saviine in folder with a short path, some savedata files have some really long names (170+ chracters)
 - backup your savedata before dumping it!!! I'm not responsible for any lost data.
-- fastmode doesn't work for all games.
+- make sure that your game version and the game version from injecting save are the same
+- e.g. injecting PAL saves into NTSC one is untested!
+
+NOTE FOR SUPER SMASH BROS FOR WIIU the common data is too big to inject at one time. injecting the common folder will fail. try to split the files up and use the inject without clean to inject the data without the texture folder. MAKE SURE TO MAKE A BACKUP! This may also applies to other games
+
+The WiiU has mutiple save folder. One folder for infos that are shared with all accounts (common) and a folder for each account (e.g 8000000a)
+At the moment it is only possible to dump the common folder your own folder. Not all games use the common folder.
+
+Folder structur:
+logs/ <-- logs
+saviine_root/dump <-- the save files will be dumped here. A sub folder for each game will be created (name is the game title id)
+saviine_root/inject <-- place the saves here if you want to inject them
 
 How to use :
-Usage:
-Normal mode: saviine_server.exe
-Fast mode: saviine_server.exe fastmode
 
-- launch the kernel exploit in the brower
-- open saviine server in your computer, check your ip
-(you can start the server in fastmode (faster dumper), this doesn't work for all games. Only use it when the savegame is really big (e.g. Super Smash Bros for WiiU) )
-- relaunch browser and launch saviine app, set saviine server ip in the application with up/down/left/right, and press A to install saviine
+temporary installing saviine:
+- launch the "normal" kernel exploit in the brower
+- relaunch browser and launch saviine app, set saviine server ip in the application with up/down/left/right, and press A to install saviine. if you see crap on the screen, press up/down to fix it
   -> browser should exit
-- launch a game or application
-- the savedata should be dumped to a folder in /saviine/[title_id]
-- profit
-- you can close the game and dump an other
+  
+dumping:
+--- MAKE SURE THAT THE SAVIINE SERVER IN A FOLDER WITH A SHORT PATH! some gamefiles have some really really long names. e.g. D:/saviine/ ---
+- open the dump.bat or start the saviine_server.exe with the argument "dump"
+- launch a game
+- a dialog should appear, select if you want to dump the user and/or the common data
+- the data will be dumped to saviine_root/dump/[game_title_id]/80000000x (user data) and/or saviine_root/dump/[game_title_id]/common (common)
+- close the game and dump an other
+
+injecting:
+--- INJECTING FILES IS STILL IN TESTING! MAKE SURE TO SAVE YOUR SAVES BEFORE TRYING TO INJECT SOMETHING ---
+--- EXISTING SAVE DATA ON THAT WILL BE GONE AFTER THE INJECTION ---
+
+- open the inject.bat or start the saviine_server.exe with the argument "inject"
+- place the save data you want to inject into the "saviine_root/inject" folder. You need to have a folder for each game, named after the games title id (e.g saviine_root\inject\00050000-1010ED00).
+this folder will be scanned for 8000000x or common folders.
+- launch a game
+- a dialog should appear, select if the profile you want to inject and choose if you want to inject the common files too.
+For the commmon folder you have two options:
+	1. inject.
+		this adds the data into the existing common folder, existing files will be overwritten. (I think this way you can add replays to your Mario Kart 8)
+	2. clean and inject
+		deletes all existing files in the existing common and injects the new one.
+
+- on errors during the injection, the wii tries to restore the old data. but it can't guarantee that it works, make sure to make backups!
+

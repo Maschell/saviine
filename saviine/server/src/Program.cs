@@ -425,56 +425,55 @@ namespace saviine_server
                                         }
                                     }
                                     writer.Write(BYTE_OK);
-                                    Console.WriteLine("InjectionEND");
+                                    //Console.WriteLine("InjectionEND");
                                         
                                     break;
                                 }
                             case BYTE_DUMPSTART:
                                 {
                                     long wiiUpersistentID = (long)reader.ReadUInt32();
-                                    int dumpCommon = 0;
-                                    currentPersistentID = wiiUpersistentID;
-                                    dumpCommon = 1;
-                                    /*
-                                    Boolean injectioncanceled = false;
-                                    SaveSelectorDialog ofd = new SaveSelectorDialog(title_id, wiiUpersistentID);
+                                    Boolean dumpCommon = false;
+                                    Boolean dumpUser = false;
+                                    currentPersistentID = wiiUpersistentID;                                   
+                                    
+                                    Boolean dumpcanceled = false;
+                                    DumpDialog ofd = new DumpDialog(title_id, wiiUpersistentID);
                                     try
                                     {
                                         DialogResult result = ofd.ShowDialog();
                                         if (result == System.Windows.Forms.DialogResult.OK)
                                         {
-                                            currentPersistentID = ofd.NewPersistentID;
+                                            dumpUser = ofd.DumpUser;
                                             dumpCommon = ofd.DumpCommon;
                                             //Console.WriteLine("Injecting " + currentPersistentID.ToString() + " into " + wiiUpersistentID.ToString() + " for title id " + title_id);
-                                            if (dumpCommon == 1) Console.WriteLine("clean and inject common folder");
-                                            if (dumpCommon == 2) Console.WriteLine("inject common folder");
-                                            if (dumpCommon > 0 && currentPersistentID == 0) currentPersistentID = COMMON_PERSISTENTID;
+                                            if (dumpCommon) Console.WriteLine("dumping common data");
+                                            if (dumpUser) Console.WriteLine("dumping user data");                                            
                                         }
                                         else
                                         {
                                             Console.WriteLine("dump canceled");
-                                            injectioncanceled = true;
+                                            dumpcanceled = true;
                                         }
                                     }
                                     catch (Exception e)
                                     {
                                         Console.WriteLine("dump canceled");
-                                        injectioncanceled = true;
+                                        dumpcanceled = true;
                                     }
-                                    if (injectioncanceled)
+                                    if (dumpcanceled)
                                     {
                                         writer.Write(BYTE_NORMAL);
                                     }
                                     else
                                     {
                                         writer.Write(BYTE_SPECIAL);
-                                    }*/
-                                    writer.Write(BYTE_SPECIAL);
+                                    }
+                                   
                                     int dumpmask = MASK_NORMAL;
-                                    if (currentPersistentID != 0 && currentPersistentID != COMMON_PERSISTENTID)
+                                    if (dumpUser)
                                         dumpmask |= MASK_USER;
 
-                                    if (dumpCommon == 1)
+                                    if (dumpCommon)
                                     {
                                         dumpmask |= MASK_COMMON;                                        
                                     }
@@ -496,7 +495,7 @@ namespace saviine_server
                                         }
                                     }
                                     writer.Write(BYTE_OK);
-                                    Console.WriteLine("dumpEND");
+                                    //Console.WriteLine("dumpEND");
 
                                     break;
                                 }

@@ -36,6 +36,8 @@
 #define MASK_COMMON        0x0200
 #define MASK_COMMON_CLEAN  0x0400
 
+void GX2WaitForVsync(void);
+
 void *memcpy(void *dst, const void *src, int bytes);
 void *memset(void *dst, int val, int bytes);
 
@@ -68,6 +70,7 @@ extern FSStatus FSRemove(FSClient *pClient, FSCmdBlock *pCmd, const char *path, 
 extern FSStatus FSRollbackQuota(FSClient *pClient, FSCmdBlock *pCmd, const char *path, FSRetFlag errHandling);
 extern void OSDynLoad_Acquire (char* rpl, unsigned int *handle);
 extern void OSDynLoad_FindExport (unsigned int handle, int isdata, char *symbol, void *address);
+extern void _Exit();
 
 extern void socket_lib_init();
 extern int socket(int domain, int type, int protocol);
@@ -79,13 +82,13 @@ extern int recv(int socket, void *buffer, int size, int flags);
 extern int __os_snprintf(char* s, int n, const char * format, ...);
 
 int saviine_readdir(int sock, char * path,char * resultname, int * resulttype,int *filesize);
-int injectFiles(void *pClient, void *pCmd, char * path,char * relativepath,char *  pBuffer, int buffer_size, int error);
+int injectFiles(void *pClient, void *pCmd, char * path,char * relativepath, char * basepath, char *  pBuffer, int buffer_size, int error);
 void doFlushOrRollback(void *pClient,void *pCmd,int result,char *savepath);
 void injectSaveData(void *pClient, void *pCmd,long persistentID,int error);
 void dumpSavaData(void *pClient, void *pCmd,long persistentID,int error);
 long getPesistentID(unsigned char * slotno);
 void init_Save(unsigned char slotNo);
-int doInjectForFile(void * pClient, void * pCmd,int handle,char * filepath,int filesize,void * pBuffer,int buf_size);
+int doInjectForFile(void * pClient, void * pCmd,int handle,char * filepath,int filesize, char * basepath,void * pBuffer,int buf_size);
 void handle_saves(void *pClient, void *pCmd,int error);
 void hook(void * pClient,void * pCmd, int error);
 int dump_dir(void *pClient, void *pCmd, char *path, void * pBuffer, int size,int error, int handle);
@@ -114,7 +117,9 @@ struct bss_t {
     int socket_fs[MAX_CLIENT];
 	char save_path[255];
 	volatile int saveFolderChecked;
+	volatile void * on_start_hook_client;
     volatile int lock;
+	volatile int saveinitfs;
 	int logsock;
 };
 

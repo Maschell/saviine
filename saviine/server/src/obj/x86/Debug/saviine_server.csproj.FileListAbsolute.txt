@@ -6,3 +6,4 @@ G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\obj\x86\Debu
 G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\obj\x86\Debug\saviine_server.csproj.GenerateResource.Cache
 G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\obj\x86\Debug\saviine_server.SaveSelectorDialog.resources
 G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\obj\x86\Debug\saviine_server.csprojResolveAssemblyReference.cache
+G:\Programmieren\libwiiu-master\saviinet\saviine\saviine\server\src\obj\x86\Debug\saviine_server.DumpDialog.resources

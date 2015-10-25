@@ -10,9 +10,15 @@
 #define FS_MAX_ARGPATH_SIZE             FS_MAX_FULLPATH_SIZE
 
 #define FS_STATUS_OK                    0
+#define FS_STATUS_EXISTS				-5
+#define FS_STATUS_STORAGE_FULL			-12
+#define FS_STATUS_JOURNAL_FULL			-13
+
+
 #define FS_RET_UNSUPPORTED_CMD          0x0400
 #define FS_RET_NO_ERROR                 0x0000
 #define FS_RET_ALL_ERROR                (uint)(-1)
+
 
 /* directory entry stat flag */
 #define FS_STAT_ATTRIBUTES_SIZE         (48)        /* size of FS-specific attributes field */

@@ -12,11 +12,6 @@ static int cafiine_handshake(int sock);
 
 
 
-void GX2WaitForVsync(void);
-
-
-
-
 void cafiine_connect(int *psock) {
     extern unsigned int server_ip;
     struct sockaddr_in addr;

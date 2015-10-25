@@ -47,6 +47,7 @@ PROVIDE(FSIsEof = 0x106f610);
 PROVIDE(FSWriteFile = 0x106F228);
 PROVIDE(FSFlushQuota = 0x106FAC8);
 PROVIDE(FSRollbackQuota  = 0x106FC48);
+PROVIDE(_Exit = 0x101CD70);
 
 /* */
 PROVIDE(FSGetStat = 0x0106fdc8);

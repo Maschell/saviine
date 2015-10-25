@@ -57,6 +57,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DumpDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="DumpDialog.Designer.cs">
+      <DependentUpon>DumpDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="SaveSelectorDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -94,6 +100,9 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="DumpDialog.resx">
+      <DependentUpon>DumpDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="SaveSelectorDialog.resx">
       <DependentUpon>SaveSelectorDialog.cs</DependentUpon>
     </EmbeddedResource>

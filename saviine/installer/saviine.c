@@ -308,7 +308,7 @@ static int show_ip_selection_screen(unsigned int coreinit_handle, unsigned int *
 	while (1)
 	{
 		 // Print message
-		PRINT_TEXT1(14, 1, "-- SAVIINE 0.3 (a cafiine mod) --");
+		PRINT_TEXT1(14, 1, "-- SAVIINE 1.0 (a cafiine mod) --");
 		PRINT_TEXT2(0, 5, "%s : %3d.%3d.%3d.%3d", "1. Server IP", ip.digit[0], ip.digit[1], ip.digit[2], ip.digit[3]);
 		PRINT_TEXT1(0, 6, "2. Press A to install saviine");
 		PRINT_TEXT1(42, 17, "home button to exit ...");
