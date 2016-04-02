@@ -1,16 +1,13 @@
-Saviine 1.0 (25.10.2015)
+Saviine 1.1 (02.04.2016)
 
-Compatible with 5.3.2 fw
-
-dumps and injects (experimental) WiiU Saves(Thanks to everyone who worked on cafiine! code is based on cafiine)
+Dumps and injects (experimental) WiiU Saves.
+Works with homebrew launcher (https://github.com/dimok789/homebrew_launcher), compatible with FW 5.0.0, 5.1,0, 5.3.2, 5.4.0, 5.5.x (But requires a kernel exploit)
 
 Compilation :
-- in order to compile saviine you need to put the saviine folder in your libwiiu project
-- libwiiu/saviine/installer must be compiled like the other libwiiu examples (with the build.py script)
-- copy the saviine532.elf from the saviine/installer/bin to the www folder
+- just compile it with "make" and put the saviine.elf on your sd card
 
 Pre-made version :
-- in www/saviine, it is already compiled, just put the folder in your server
+- you can fine a release package under the "releases" tab
 
 Note :
 - make sure you already have a save of the game on you console before trying to dump/inject them
@@ -19,6 +16,7 @@ Note :
 - backup your savedata before dumping it!!! I'm not responsible for any lost data.
 - make sure that your game version and the game version from injecting save are the same
 - e.g. injecting PAL saves into NTSC one is untested!
+- this new version only runs with the homebrew_launcher.
 
 NOTE FOR SUPER SMASH BROS FOR WIIU the common data is too big to inject at one time. The data will may be flushed at some time. automaticly restoring the data after flushing is not possible. MAKE SURE TO MAKE A BACKUP! This may also applies to other gaames
 
@@ -33,8 +31,11 @@ saviine_root/inject <-- place the saves here if you want to inject them
 How to use :
 
 temporary installing saviine:
-- launch the "normal" kernel exploit in the brower
-- relaunch browser and launch saviine app, set saviine server ip in the application with up/down/left/right, and press A to install saviine. if you see crap on the screen, press up/down to fix it
+- put the elf into the app path on your SD Card (e.g. /wiiu/apps/saviine/saviine.elf) and insert the sd card into your WiiU (You can also use the sendelf method)
+- launch the homebrew launcher to install the kernel exploit
+- relaunch browser and launch the homebrew launcher again. This time the homebrew launcher will start.
+- select saviine and start it.
+- set saviine server ip in the application with up/down/left/right, and press A to install saviine. if you see crap on the screen, press up/down to fix it
   -> browser should exit
   
 dumping:
