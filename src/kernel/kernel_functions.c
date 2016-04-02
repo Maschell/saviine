@@ -3,7 +3,7 @@
 #include "common/kernel_defs.h"
 #include "kernel/kernel_functions.h"
 #include "kernel/syscalls.h"
-#include "discdumper.h"
+#include "saviine.h"
 
 /* our retain data */
 ReducedCosAppXmlInfo cosAppXmlInfoStruct __attribute__((section(".data")));

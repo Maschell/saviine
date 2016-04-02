@@ -63,3 +63,6 @@ For the commmon folder you have two options:
 
 - on errors during the injection, the wii tries to restore the old data. but it can't guarantee that it works, make sure to make backups!
 
+Thanks to
+dimok -  for the homebrew launcher, loadiine gx 2, and ddd with was the base environment for the current version. =)
+chadderz -  for cafiine. Still using some of this old funcions =)
