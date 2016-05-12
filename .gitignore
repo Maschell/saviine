@@ -41,7 +41,7 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
-
+build/*
 server/src/bin/logs/*
 server/src/bin/saviine_root/*
 server/src/bin/saviine_server.pdb
