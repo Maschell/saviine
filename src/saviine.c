@@ -133,10 +133,9 @@ void dumpSavaData(void *pClient, void *pCmd,long persistentID,int error){
 				log_string(socket_log, "dumping user savedata", BYTE_LOG_STR);
 				if(dump_dir(pClient,pCmd,savepath,pBuffer,buf_size,error,50) == -1){
 					log_string(socket_log, "error dumping user dir", BYTE_LOG_STR);
-					failed = 1;
 				}
 			}
-			if((mask & MASK_COMMON) == MASK_COMMON && !failed){
+			if((mask & MASK_COMMON) == MASK_COMMON){
 				char * commonDir = "/vol/save/common";
 				log_string(socket_log, "dumping common savedata", BYTE_LOG_STR);
 				if(dump_dir(pClient,pCmd,commonDir,pBuffer,buf_size,error,60) == -1){
@@ -255,9 +254,7 @@ void injectSaveData(void *pClient, void *pCmd,long persistentID,int error){
 				__os_snprintf(logbuffer, sizeof(logbuffer), "injecting new userdata in %08x",persistentID);
 				log_string(socket_log, logbuffer, BYTE_LOG_STR);
 				log_string(socket_log, "deleting user save", BYTE_LOG_STR);
-				if(remove_files_in_dir(pClient,pCmd,savepath,0) == -1){
-					failed = 1;
-				}else{
+				if(remove_files_in_dir(pClient,pCmd,savepath,0) == 0){
 					/*
 					Inject Save
 					*/
