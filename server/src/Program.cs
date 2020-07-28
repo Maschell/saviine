@@ -242,8 +242,8 @@ namespace saviine_server
 
 
 
-                    string LocalRootDump = root + "\\" + "dump" + "\\" + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + "\\";
-                   string LocalRootInject = root + "\\" + "inject" + "\\" + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + "\\";
+                    string LocalRootDump = root + Path.DirectorySeparatorChar + "dump" + Path.DirectorySeparatorChar + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + Path.DirectorySeparatorChar;
+                   string LocalRootInject = root + Path.DirectorySeparatorChar + "inject" + Path.DirectorySeparatorChar + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + Path.DirectorySeparatorChar;
 
                    if (!ids[0].ToString("X8").Equals("00050000"))
                     {
@@ -266,7 +266,7 @@ namespace saviine_server
                    Console.WriteLine(name + " TitleID: " + ids[0].ToString("X8") + "-" + ids[1].ToString("X8"));
 
                     // Create log file for current thread
-                    log = new StreamWriter(logs_root + "\\" + DateTime.Now.ToString("yyyy-MM-dd") + "-" + name + "-" + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + ".txt", true, Encoding.ASCII, 1024*64);
+                    log = new StreamWriter(logs_root + Path.DirectorySeparatorChar + DateTime.Now.ToString("yyyy-MM-dd") + "-" + name + "-" + ids[0].ToString("X8") + "-" + ids[1].ToString("X8") + ".txt", true, Encoding.ASCII, 1024*64);
                     log.WriteLine(name + " Accepted connection from client " + client.Client.RemoteEndPoint.ToString());
                     string title_id = ids[0].ToString("X8") + "-" + ids[1].ToString("X8");
                     log.WriteLine(name + " TitleID: " + title_id);                   
